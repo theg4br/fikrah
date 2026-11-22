@@ -1,5 +1,8 @@
 """Google Gemini text generation and embeddings adapters."""
 
+from collections.abc import Iterator
+from contextlib import closing
+
 from google import genai
 from google.genai import types
 
@@ -36,3 +39,29 @@ class GeminiTextGenerator:
         if not response.text:
             raise ValueError("Gemini returned an empty structured response")
         return response_model.model_validate_json(response.text)
+
+    def stream_structured(
+        self,
+        *,
+        system_instruction: str,
+        user_content: str,
+        response_model: type[StructuredResult],
+    ) -> Iterator[str]:
+        with closing(
+            self._client.models.generate_content_stream(
+                model=self._model,
+                contents=user_content,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                    response_mime_type="application/json",
+                    response_schema=response_model,
+                    max_output_tokens=3000,
+                ),
+            )
+        ) as stream:
+            for chunk in stream:
+                for candidate in chunk.candidates or []:
+                    if candidate.finish_reason not in (None, types.FinishReason.STOP):
+                        raise ValueError("Gemini did not finish the streamed response")
+                if chunk.text:
+                    yield chunk.text

@@ -1,5 +1,6 @@
 """Application-facing interfaces implemented by LLM infrastructure adapters."""
 
+from collections.abc import Iterator
 from typing import Protocol, TypeVar
 
 from pydantic import BaseModel
@@ -12,6 +13,14 @@ class CloseableProvider(Protocol):
 
 
 class StructuredTextGenerator(CloseableProvider, Protocol):
+    def stream_structured(
+        self,
+        *,
+        system_instruction: str,
+        user_content: str,
+        response_model: type[StructuredResult],
+    ) -> Iterator[str]: ...
+
     def generate_structured(
         self,
         *,

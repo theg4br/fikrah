@@ -51,3 +51,13 @@ class MessageSubmissionResult:
     conversation: ConversationSummary
     user_message: MessageRecord
     assistant_message: MessageRecord
+
+
+@dataclass(frozen=True, slots=True)
+class ChatDelta:
+    content: str
+
+
+@dataclass(frozen=True, slots=True)
+class ChatCompleted:
+    result: MessageSubmissionResult
