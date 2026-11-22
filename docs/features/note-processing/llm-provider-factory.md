@@ -66,3 +66,14 @@ Only one Beat scheduler should run for this initial deployment command.
 Each processing invocation claims a unique attempt token, including Celery retries that reuse a task ID. Completion and failure require the active token and processing status. A stale attempt cannot overwrite a successful result or mark it failed. Transient failures release only their own claim for retry; terminal failures change state only if that attempt still owns it.
 
 API deletion, processing claims/completion, failure handling, and dispatch recovery acquire note locks before job locks. Deletion and worker completion also share the project advisory lock, so graph updates and vector writes cannot race deletion. PostgreSQL concurrency tests can be enabled using `FIKRAH_TEST_DATABASE_URL` pointing at a dedicated database whose name ends in `_test`; every case creates and removes its own schema.
+
+## Provider retry ownership
+
+Text generation (including streaming) and embeddings use one SDK attempt per
+call, retaining the existing 90-second network timeouts. OpenAI-compatible
+clients explicitly disable SDK retries; Gemini explicitly sets one attempt.
+The installed Gemini SDK already used one attempt when retry options were
+absent; the explicit setting preserves that behavior across SDK upgrades.
+Celery owns note retries, so a provider does not silently multiply the worker
+retry budget. Chat/search requests do not gain an automatic provider retry.
+Network inactivity timeouts are not whole-operation deadlines.
