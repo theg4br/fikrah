@@ -12,7 +12,7 @@ def test_factory_selects_deepseek_or_gemini_text_provider(
     created: list[tuple[str, ...]] = []
 
     class FakeProvider:
-        def __init__(self, *args: str) -> None:
+        def __init__(self, *args: str, **kwargs) -> None:
             created.append(args)
 
     monkeypatch.setattr(llm_factory, "DeepSeekTextGenerator", FakeProvider)
@@ -47,6 +47,22 @@ def test_factory_requires_selected_provider_credentials(
     monkeypatch.setenv("LLM_TEXT_PROVIDER", "unsupported")
     with pytest.raises(RuntimeError, match="LLM_TEXT_PROVIDER"):
         LLMProviderFactory.create_text_generator()
+
+
+def test_factory_passes_configurable_openrouter_chat_reasoning(monkeypatch):
+    options = []
+
+    class Provider:
+        def __init__(self, api_key, model, *, chat_reasoning_enabled):
+            options.append(chat_reasoning_enabled)
+
+    monkeypatch.setattr(llm_factory, "OpenRouterTextGenerator", Provider)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.delenv("OPENROUTER_CHAT_REASONING_ENABLED", raising=False)
+    LLMProviderFactory.create_text_generator("openrouter")
+    monkeypatch.setenv("OPENROUTER_CHAT_REASONING_ENABLED", "true")
+    LLMProviderFactory.create_text_generator("openrouter")
+    assert options == [False, True]
 
 
 def test_embedding_factory_uses_gemini_and_validates_dimensions(

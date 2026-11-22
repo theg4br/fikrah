@@ -1,4 +1,4 @@
-"""Bounded social replies that cannot introduce knowledge outside project notes."""
+"""Deterministic social replies and progressive note-presentation policy."""
 
 import re
 import unicodedata
@@ -20,19 +20,27 @@ def _normalize(message: str) -> str:
 _REPLY_GROUPS = (
     (
         ("hi", "hello", "hey", "good morning", "good evening"),
-        "Hi! I'm FIKRAH, your personal knowledge assistant. How can I help with your project notes?",
+        "Hi! How can I help?",
     ),
     (
-        ("اهلا", "اهلا وسهلا", "مرحبا", "هاي", "هلا", "صباح الخير", "مساء الخير"),
-        "أهلًا! أنا مساعد FIKRAH لمعرفتك الشخصية. أقدر أساعدك إزاي في نوتس المشروع؟",
+        ("اهلا", "اهلا بيك", "اهلا وسهلا", "مرحبا", "هاي", "هلا"),
+        "أهلًا بيك!",
+    ),
+    (
+        ("صباح الخير", "صباح النور", "صباح الورد", "صباح الفل"),
+        "صباح النور!",
+    ),
+    (
+        ("مساء الخير", "مساء النور", "مساء الورد", "مساء الفل"),
+        "مساء النور!",
     ),
     (
         ("السلام عليكم", "السلام عليكم ورحمة الله وبركاته"),
-        "وعليكم السلام! أهلًا بيك في FIKRAH. أقدر أساعدك إزاي في نوتس المشروع؟",
+        "وعليكم السلام! أهلًا بيك.",
     ),
     (
         ("how are you", "how are you doing", "how s it going", "hello how are you"),
-        "I'm ready to help! What would you like to explore in your project notes?",
+        "I'm here and ready to help! How are you?",
     ),
     (
         (
@@ -44,18 +52,23 @@ _REPLY_GROUPS = (
             "كيفك",
             "اهلا عامل ايه",
         ),
-        "أنا جاهز أساعدك! تحب نراجع إيه في نوتس المشروع؟",
+        "أنا جاهز أساعدك! إنت أخبارك إيه؟",
     ),
     (
         (
             "who are you",
             "what are you",
             "introduce yourself",
+        ),
+        "I'm FIKRAH, your personal knowledge assistant.",
+    ),
+    (
+        (
             "what can you do",
             "how can you help",
             "help",
         ),
-        "I'm FIKRAH, your personal knowledge assistant. I can summarize your project notes and answer questions with note sources. If your notes don't support an answer, I'll say so.",
+        "I can summarize your project notes and answer questions using their sources. If they don't support an answer, I'll say so.",
     ),
     (
         (
@@ -64,29 +77,34 @@ _REPLY_GROUPS = (
             "من انت",
             "عرفني بنفسك",
             "عرف نفسك",
+        ),
+        "أنا FIKRAH، مساعدك الشخصي لتنظيم المعرفة والرجوع لها.",
+    ),
+    (
+        (
             "تقدر تعمل ايه",
             "بتعمل ايه",
             "بتساعدني ازاي",
             "ممكن تساعدني في ايه",
             "مساعدة",
         ),
-        "أنا مساعد FIKRAH لمعرفتك الشخصية. أقدر ألخّص نوتس المشروع وأجاوب على أسئلتك بمصادر منها. ولو النوتس مش بتدعم إجابة، هقولك بوضوح.",
+        "أقدر ألخّص نوتس المشروع وأجاوب على أسئلتك بمصادر منها. ولو مش بتدعم إجابة، هقولك بوضوح.",
     ),
     (
         ("thanks", "thank you", "thank you very much"),
-        "You're welcome! I'm here to help with your project notes.",
+        "You're welcome!",
     ),
     (
         ("شكرا", "شكرا لك", "تسلم", "متشكر"),
-        "العفو! أنا موجود لو حابب ترجع لنوتس المشروع.",
+        "العفو!",
     ),
     (
         ("bye", "goodbye", "see you"),
-        "Goodbye! Your project notes will be here when you return.",
+        "Goodbye!",
     ),
     (
         ("مع السلامة", "باي", "الي اللقاء"),
-        "مع السلامة! تقدر ترجع لنوتس المشروع وقت ما تحب.",
+        "مع السلامة!",
     ),
 )
 
@@ -98,3 +116,42 @@ _SOCIAL_REPLIES = {
 def social_reply(message: str) -> str | None:
     """Return approved copy only for a complete, recognized social utterance."""
     return _SOCIAL_REPLIES.get(_normalize(message))
+
+
+def is_continuation(message: str) -> bool:
+    return _normalize(message) in {
+        "كمل",
+        "كمللي",
+        "كمل الباقي",
+        "كمل النوتس",
+        "تابع",
+        "الباقي",
+        "المزيد",
+        "continue",
+        "more",
+        "show more",
+        "next",
+        "next page",
+        "go on",
+    }
+
+
+def is_note_overview(message: str) -> bool:
+    """Limit presentation requests, without granting permission to answer them."""
+    words = set(_normalize(message).split())
+    return bool(
+        words
+        & {
+            "لخص",
+            "لخصلي",
+            "تلخيص",
+            "ملخص",
+            "اعرض",
+            "وريني",
+            "summarize",
+            "summarise",
+            "summary",
+            "overview",
+            "list",
+        }
+    )

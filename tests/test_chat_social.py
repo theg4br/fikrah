@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from app.infrastructure.container import chat_service
-from app.services.chat_social import social_reply
+from app.services.chat_policy import social_reply
 from tests import test_chat_api
 
 chat_api = test_chat_api.chat_api
@@ -47,6 +47,18 @@ def test_recognizes_complete_social_messages(message):
 )
 def test_mixed_and_unknown_requests_cannot_enter_social_path(message):
     assert social_reply(message) is None
+
+
+@pytest.mark.parametrize(
+    "message",
+    ["مساء الورد", "صباح الفل", "عامل ايه", "اهلا", "شكرا", "Hello!", "thanks"],
+)
+def test_social_replies_do_not_mention_or_enumerate_notes(message):
+    reply = social_reply(message)
+    assert reply
+    assert "نوت" not in reply
+    assert "ملاحظ" not in reply
+    assert "notes" not in reply
 
 
 @pytest.mark.asyncio

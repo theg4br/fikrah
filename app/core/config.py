@@ -93,6 +93,9 @@ class Settings(BaseSettings):
         default="deepseek/deepseek-v4.1-flash",
         validation_alias="OPENROUTER_TEXT_MODEL",
     )
+    openrouter_chat_reasoning_enabled: bool = Field(
+        default=False, validation_alias="OPENROUTER_CHAT_REASONING_ENABLED"
+    )
 
     fikrah_jwt_secret: str = Field(default="", validation_alias="FIKRAH_JWT_SECRET")
     google_client_id: str | None = Field(

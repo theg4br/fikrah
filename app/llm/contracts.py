@@ -28,6 +28,6 @@ class ChatHistoryMessage(BaseModel):
 
 
 class ChatAnswer(BaseModel):
-    answer: str = Field(min_length=1)
     supported: bool
     source_note_ids: list[str] = Field(default_factory=list)
+    answer: str = Field(min_length=1)

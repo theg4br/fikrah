@@ -54,6 +54,7 @@ class LLMProviderFactory:
             return OpenRouterTextGenerator(
                 api_key,
                 settings.openrouter_text_model,
+                chat_reasoning_enabled=settings.openrouter_chat_reasoning_enabled,
             )
         raise RuntimeError(
             "LLM_TEXT_PROVIDER must be 'deepseek', 'gemini', or 'openrouter'"

@@ -24,12 +24,13 @@ from app.models import ChatConversation, ChatMessage, Project
 from app.rag.errors import SearchUnavailableError
 from app.repositories.chat import ChatRepository
 from app.services.chat_errors import ChatFailure, ChatServiceError
-from app.services.chat_social import social_reply
+from app.services.chat_policy import is_continuation, is_note_overview, social_reply
 from app.services.search_errors import SearchProjectNotFound
 from app.services.search_service import SemanticSearchService
 
 CHAT_CONTEXT_LIMIT = 8
 CHAT_HISTORY_LIMIT = 12
+CHAT_OVERVIEW_BATCH_SIZE = 3
 
 
 class ChatService:
@@ -134,6 +135,8 @@ class ChatService:
         user_id: UUID,
         conversation_id: UUID,
         body: MessageCreateCommand,
+        *,
+        on_delta: Callable[[str], None] | None = None,
     ) -> MessageSubmissionResult:
         conversation = await self._owned_conversation(
             db, user_id, conversation_id, lock=True
@@ -150,13 +153,41 @@ class ChatService:
             ChatHistoryMessage(role=message.role, content=message.content)
             for message in reversed(history_desc)
         ]
+        retrieval_query = body.content
+        overview = is_note_overview(body.content)
+        shown_ids: set[UUID] = set()
+        if is_continuation(body.content):
+            anchor = next(
+                (
+                    message
+                    for message in history_desc
+                    if message.role == "user"
+                    and not is_continuation(message.content)
+                    and social_reply(message.content) is None
+                ),
+                None,
+            )
+            if anchor is not None and is_note_overview(anchor.content):
+                retrieval_query = anchor.content
+                overview = True
+                # These are actual persisted citations, not claims made by
+                # untrusted conversation text. Keep the same retrieval window.
+                page_history = []
+                for message in history_desc:
+                    if message.id == anchor.id:
+                        break
+                    page_history.append(message)
+                views = await self._message_views(db, page_history)
+                shown_ids = {
+                    source.note_id for view in views for source in view.sources
+                }
         project_id = conversation.project_id
         last_message_id = history_desc[0].id if history_desc else None
         await db.rollback()
 
         try:
             matches = await self._search_service.retrieve(
-                db, user_id, project_id, body.content, CHAT_CONTEXT_LIMIT
+                db, user_id, project_id, retrieval_query, CHAT_CONTEXT_LIMIT
             )
         except SearchProjectNotFound as error:
             raise ChatServiceError(
@@ -168,6 +199,10 @@ class ChatService:
                 "Project knowledge is temporarily unavailable",
             ) from error
 
+        if overview:
+            matches = [match for match in matches if match.note_id not in shown_ids][
+                :CHAT_OVERVIEW_BATCH_SIZE
+            ]
         note_context = [
             ChatNoteContext(
                 note_id=str(match.note_id),
@@ -182,7 +217,7 @@ class ChatService:
                 run_with_provider,
                 self._text_generator_factory,
                 lambda generator: answer_project_question(
-                    generator, body.content, note_context, history
+                    generator, body.content, note_context, history, on_delta=on_delta
                 ),
             )
         except Exception as error:
@@ -283,6 +318,13 @@ class ChatService:
             supported=supported,
             valid_sources=valid_sources,
         )
+
+    async def authorize_conversation(
+        self, db: AsyncSession, user_id: UUID, conversation_id: UUID
+    ) -> None:
+        """Check access before HTTP streaming starts, then release the read."""
+        await self._owned_conversation(db, user_id, conversation_id)
+        await db.rollback()
 
     async def _save_exchange(
         self,

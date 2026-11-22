@@ -63,6 +63,8 @@ class EndpointTester:
         except ValueError as error:
             print(f"FAIL {error}")
             return False
+        if path.endswith("/messages/stream"):
+            return self._test_stream(method, url, expected_status, body, headers)
         try:
             response = self.client.request(
                 method, url, headers=headers, json=body, files=files
@@ -94,6 +96,60 @@ class EndpointTester:
         else:
             print("Response: <empty>")
         return response.status_code == expected_status
+
+    def _test_stream(self, method, url, expected_status, body, headers) -> bool:
+        """Show incremental text and require the authoritative completion event."""
+        completed = False
+        event = ""
+        total = 0
+        try:
+            with self.client.stream(
+                method, url, headers=headers, json=body
+            ) as response:
+                status_ok = response.status_code == expected_status
+                print(
+                    f"{'PASS' if status_ok else 'FAIL'} expected HTTP {expected_status}; received HTTP {response.status_code}"
+                )
+                if response.status_code != 200:
+                    response.read()
+                    print(
+                        json.dumps(redact(parse_response(response)), ensure_ascii=False)
+                    )
+                    return status_ok
+                for line in response.iter_lines():
+                    total += len(line)
+                    if total > 1_048_576:
+                        raise ValueError("Stream exceeded its size limit")
+                    if line.startswith("event:"):
+                        event = line[6:].strip()
+                    elif line.startswith("data:"):
+                        payload = json.loads(line[5:])
+                        if event == "delta":
+                            print(payload["content"], end="", flush=True)
+                        elif event == "complete":
+                            print("\nFinal response:")
+                            print(
+                                json.dumps(
+                                    redact(payload), indent=2, ensure_ascii=False
+                                )
+                            )
+                            completed = True
+                        elif event == "error":
+                            print(
+                                "\nFAIL stream error:",
+                                json.dumps(redact(payload), ensure_ascii=False),
+                            )
+                            return False
+                if not completed:
+                    print(
+                        "\nFAIL stream ended without completion; reload the conversation before retrying."
+                    )
+                return status_ok and completed
+        except (httpx.HTTPError, ValueError, KeyError, TypeError) as error:
+            print(
+                f"\nFAIL chat stream: {type(error).__name__}; reload the conversation before retrying."
+            )
+            return False
 
 
 def parse_response(response: httpx.Response) -> Any:
@@ -173,19 +229,17 @@ def describe_schema(
         property_type = property_schema.get("type", "object")
         description = property_schema.get("description")
         suffix = f" — {description}" if description else ""
-        lines.append(
-            "  " * depth + f"{name}: {property_type} ({marker}){suffix}"
-        )
+        lines.append("  " * depth + f"{name}: {property_type} ({marker}){suffix}")
         if property_schema.get("properties"):
-            lines.extend(
-                describe_schema(property_schema, openapi, depth=depth + 1)
-            )
+            lines.extend(describe_schema(property_schema, openapi, depth=depth + 1))
     return lines or ["  " * depth + schema.get("type", "object")]
 
 
 def request_body_schema(
-    operation: dict[str, Any], openapi: dict[str, Any],
-    *, media_type: str = "application/json",
+    operation: dict[str, Any],
+    openapi: dict[str, Any],
+    *,
+    media_type: str = "application/json",
 ) -> dict[str, Any] | None:
     request_body = operation.get("requestBody", {})
     if "$ref" in request_body:
@@ -200,7 +254,9 @@ def body_is_required(operation: dict[str, Any], openapi: dict[str, Any]) -> bool
     request_body = operation.get("requestBody", {})
     if isinstance(request_body, dict) and "$ref" in request_body:
         request_body = resolve_schema(request_body, openapi)
-    return bool(request_body.get("required")) if isinstance(request_body, dict) else False
+    return (
+        bool(request_body.get("required")) if isinstance(request_body, dict) else False
+    )
 
 
 def expected_status_default(operation: dict[str, Any]) -> int:
@@ -232,9 +288,7 @@ def fill_path(path: str) -> str:
     return path
 
 
-def collect_body(
-    operation: dict[str, Any], openapi: dict[str, Any]
-) -> Any:
+def collect_body(operation: dict[str, Any], openapi: dict[str, Any]) -> Any:
     required = body_is_required(operation, openapi)
     schema = request_body_schema(operation, openapi)
     if schema is None:
@@ -255,7 +309,10 @@ def collect_body(
         except json.JSONDecodeError as error:
             print(f"Invalid JSON: {error}")
             continue
-        if not isinstance(value, (dict, list, str, int, float, bool)) and value is not None:
+        if (
+            not isinstance(value, (dict, list, str, int, float, bool))
+            and value is not None
+        ):
             print("Enter a valid JSON value.")
             continue
         return value
@@ -318,9 +375,7 @@ def collect_uploads(
     return files or None
 
 
-def choose_endpoint(
-    endpoints: list[tuple[str, str, dict[str, Any]]]
-) -> int | None:
+def choose_endpoint(endpoints: list[tuple[str, str, dict[str, Any]]]) -> int | None:
     print("\nFIKRAH API endpoints")
     for index, (method, path, operation) in enumerate(endpoints, start=1):
         summary = operation.get("summary", "")
@@ -372,9 +427,7 @@ def run_interactive(tester: EndpointTester, openapi: dict[str, Any]) -> int:
             files = collect_uploads(operation, openapi)
             extra_headers = collect_headers(operation)
             default_status = expected_status_default(operation)
-            expected_text = input(
-                f"Expected HTTP status [{default_status}]: "
-            ).strip()
+            expected_text = input(f"Expected HTTP status [{default_status}]: ").strip()
             expected_status = int(expected_text) if expected_text else default_status
         except (OSError, ValueError, KeyboardInterrupt):
             print("Endpoint call cancelled.")
