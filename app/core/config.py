@@ -54,6 +54,18 @@ class Settings(BaseSettings):
     fikrah_celery_max_retries: str = Field(
         default="3", validation_alias="FIKRAH_CELERY_MAX_RETRIES"
     )
+    fikrah_note_worker_concurrency: int = Field(
+        default=4, ge=1, validation_alias="FIKRAH_NOTE_WORKER_CONCURRENCY"
+    )
+    fikrah_dispatch_worker_concurrency: int = Field(
+        default=1, ge=1, validation_alias="FIKRAH_DISPATCH_WORKER_CONCURRENCY"
+    )
+    fikrah_email_worker_concurrency: int = Field(
+        default=1, ge=1, validation_alias="FIKRAH_EMAIL_WORKER_CONCURRENCY"
+    )
+    fikrah_vector_worker_concurrency: int = Field(
+        default=1, ge=1, validation_alias="FIKRAH_VECTOR_WORKER_CONCURRENCY"
+    )
     fikrah_celery_retry_backoff_seconds: str = Field(
         default="5", validation_alias="FIKRAH_CELERY_RETRY_BACKOFF_SECONDS"
     )

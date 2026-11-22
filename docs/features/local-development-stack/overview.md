@@ -3,7 +3,7 @@
 ## Purpose
 
 Run the complete local backend stack: PostgreSQL, Redis, Qdrant, Mailpit, the
-FastAPI application, a Celery worker, and a Celery beat scheduler. This stack is
+FastAPI application, dedicated Celery role workers, and a Celery beat scheduler. This stack is
 for backend development; it does not define production deployment or expose
 services beyond the local machine.
 
@@ -18,7 +18,7 @@ services beyond the local machine.
 | Mailpit SMTP | `localhost:1025` | In-memory message capture |
 | Mailpit web UI | `localhost:8025` | In-memory message capture |
 | FastAPI | `localhost:8000` | Stateless container |
-| Celery worker | Redis-backed queue | Stateless container |
+| Celery workers | Notes/legacy, dispatch, email and vector queues | Stateless containers |
 | Celery scheduler | Redis-backed beat schedule | Stateless container |
 
 The Qdrant image is pinned to `v1.19.1` so rebuilding the local stack does not
@@ -51,9 +51,9 @@ scheduler start after the migration succeeds and their dependencies are healthy.
 The API is available at `http://localhost:8000` and its health endpoint is
 `/health`. Account emails are captured by Mailpit and can be read at
 `http://localhost:8025`. Compose routes both API delivery and durable email retries
-from the Celery worker to `mailpit:1025` through one shared SMTP configuration.
+from the dedicated email worker (and legacy worker) to `mailpit:1025` through one shared SMTP configuration.
 Both senders wait for Mailpit to be healthy. Host SMTP credentials from `.env`
-are overridden inside these two containers, so retries cannot accidentally use an
+are overridden inside these email-sending containers, so retries cannot accidentally use an
 external mail server while initial delivery uses Mailpit.
 Empty SMTP usernames/passwords are normalized to absent credentials by the email
 adapter. Passing empty strings to the SMTP client would still request AUTH,
@@ -70,17 +70,17 @@ Use this repository's Compose file and project name consistently. An old running
 API can still return `/health` successfully while its dependencies are stopped;
 that endpoint is a liveness check, not a database or provider readiness check.
 
-Before applying migrations, stop `api`, `worker`, and `scheduler`, start
+Before applying migrations, stop `api`, `worker`, `dispatcher-worker`, `email-worker`, `vector-worker`, and `scheduler`, start
 `postgres`, `redis`, `qdrant`, and `mailpit`, and create a PostgreSQL backup with
 `pg_dump -Fc`. Store the backup outside the repository with owner-only file
 permissions. Keep existing named volumes; do not use `down -v` for an upgrade.
 
 ```bash
-docker compose -p fikrah stop api worker scheduler
+docker compose -p fikrah stop api worker dispatcher-worker email-worker vector-worker scheduler
 docker compose -p fikrah up -d postgres redis qdrant mailpit
-docker compose -p fikrah build migrate api worker scheduler
+docker compose -p fikrah build migrate api worker dispatcher-worker email-worker vector-worker scheduler
 docker compose -p fikrah run --rm migrate
-docker compose -p fikrah up -d api worker scheduler
+docker compose -p fikrah up -d api worker dispatcher-worker email-worker vector-worker scheduler
 docker compose -p fikrah ps -a
 ```
 
@@ -142,3 +142,10 @@ subsequent authenticated provider checks passed; this is evidence for the local
 synthetic workflows above, not a load test, outage-recovery test, or evaluation of
 answer quality across arbitrary user content. Credentials remain local and
 untracked.
+
+## Worker queues and upgrades
+
+See [queue ownership and safe rollout](../celery-work-isolation/queues-and-rollout.md)
+for the four role workers, explicit queue consumers, configurable concurrency,
+legacy queue draining, and external SMTP override requirements. A routing upgrade
+needs its consumers started before updated API/Beat publishers.

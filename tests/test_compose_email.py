@@ -9,7 +9,7 @@ import pytest
 
 
 @pytest.mark.skipif(shutil.which("docker") is None, reason="Docker CLI required")
-@pytest.mark.parametrize("service", ["api", "worker"])
+@pytest.mark.parametrize("service", ["api", "worker", "email-worker"])
 def test_local_email_senders_share_mailpit(tmp_path: Path, service: str) -> None:
     compose = Path(__file__).resolve().parents[1] / "compose.yaml"
     env_file = tmp_path / ".env"
