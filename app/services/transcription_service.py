@@ -3,6 +3,7 @@
 from collections.abc import Callable
 from contextlib import aclosing
 
+from app.core.telemetry import timed
 from app.llm.errors import AudioRejectedError, TranscriptionUnavailableError
 from app.llm.ports import AudioTranscriber
 from app.services.transcription_errors import (
@@ -36,6 +37,7 @@ class TranscriptionService:
         self._transcriber_factory = transcriber_factory
         self._max_audio_bytes = max_audio_bytes
 
+    @timed("transcription.total")
     async def transcribe(self, audio: bytes, mime_type: str) -> str:
         if len(audio) > self._max_audio_bytes():
             raise AudioTooLarge

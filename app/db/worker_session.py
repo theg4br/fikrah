@@ -5,6 +5,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import get_settings
+from app.db.timing import instrument_database
 
 
 def create_worker_session_factory() -> tuple[object, sessionmaker[Session]]:
@@ -15,4 +16,5 @@ def create_worker_session_factory() -> tuple[object, sessionmaker[Session]]:
     if url.drivername in {"postgresql", "postgresql+asyncpg"}:
         url = url.set(drivername="postgresql+psycopg")
     engine = create_engine(url, pool_pre_ping=True)
+    instrument_database(engine)
     return engine, sessionmaker(engine, expire_on_commit=False)

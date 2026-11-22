@@ -5,6 +5,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
+from app.core.telemetry import timed
 from app.models import Note, NoteConnection
 
 MAX_CONNECTIONS_PER_NOTE = 10
@@ -14,6 +15,7 @@ def _normalized_concepts(concepts: list[str]) -> set[str]:
     return {concept.strip().casefold() for concept in concepts if concept.strip()}
 
 
+@timed("connections.refresh")
 def refresh_note_connections(session: Session, note: Note) -> None:
     """Replace a note's outgoing links with its strongest same-project matches."""
     own_concepts = _normalized_concepts(note.concepts)

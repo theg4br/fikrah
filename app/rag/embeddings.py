@@ -4,6 +4,7 @@ from google import genai
 from google.genai import types
 
 from app.core.config import get_settings
+from app.core.telemetry import timed
 from app.llm.ports import EmbeddingModel
 
 
@@ -18,9 +19,11 @@ class GeminiEmbeddingModel:
     def close(self) -> None:
         self._client.close()
 
+    @timed("embedding.note")
     def embed_note(self, content: str) -> list[float]:
         return self._embed(content, "RETRIEVAL_DOCUMENT")
 
+    @timed("embedding.query")
     def embed_query(self, query: str) -> list[float]:
         return self._embed(query, "RETRIEVAL_QUERY")
 

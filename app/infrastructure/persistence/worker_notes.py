@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy import select
 
 from app.contracts.processing import NoteProcessingSnapshot
+from app.core.telemetry import observe, timed
 from app.db.locks import PROJECT_PROCESSING_LOCK
 from app.db.worker_session import create_worker_session_factory
 from app.llm.contracts import NoteAnalysis
@@ -21,6 +22,7 @@ class WorkerNoteProcessingRepository:
     def close(self) -> None:
         self._engine.dispose()
 
+    @timed("note.claim")
     def claim(
         self, job_id: UUID, worker_task_id: str, stale_before: datetime
     ) -> NoteProcessingSnapshot | None:
@@ -57,6 +59,11 @@ class WorkerNoteProcessingRepository:
                 return None
 
             now = datetime.now(timezone.utc)
+            if job.dispatched_at is not None:
+                dispatched_at = job.dispatched_at
+                if dispatched_at.tzinfo is None:
+                    dispatched_at = dispatched_at.replace(tzinfo=timezone.utc)
+                observe("note.queue_wait", (now - dispatched_at).total_seconds())
             job.status = "processing"
             job.worker_task_id = worker_task_id
             job.started_at = now
@@ -73,6 +80,7 @@ class WorkerNoteProcessingRepository:
                 attempt_token=worker_task_id,
             )
 
+    @timed("note.persistence")
     def complete_if_current(
         self,
         snapshot: NoteProcessingSnapshot,

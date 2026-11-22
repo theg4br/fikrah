@@ -4,9 +4,11 @@ from google.auth.exceptions import GoogleAuthError
 from google.auth.transport.requests import Request
 from google.oauth2 import id_token
 
+from app.core.telemetry import timed
 from app.services.auth_ports import GoogleIdentityTokenError
 
 
+@timed("auth.google_verification")
 def verify_google_id_token(token: str, audience: str) -> dict[str, object]:
     try:
         return id_token.verify_oauth2_token(token, Request(), audience)

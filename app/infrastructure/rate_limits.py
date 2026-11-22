@@ -6,6 +6,7 @@ from hashlib import sha256
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
+from app.core.telemetry import timed
 from app.services.request_budgets import RequestBudgetExceeded, RequestBudgetUnavailable
 
 _CONSUME = """
@@ -19,6 +20,7 @@ class RedisBudgetStore:
     def __init__(self, redis_url: Callable[[], str]) -> None:
         self._redis_url = redis_url
 
+    @timed("budget.consume")
     async def consume(self, key: str, limit: int, window_seconds: int) -> None:
         redis_key = f"fikrah:budget:{sha256(key.encode()).hexdigest()}"
         try:

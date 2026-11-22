@@ -5,6 +5,7 @@ from uuid import UUID
 
 from sqlalchemy import or_, select
 
+from app.core.telemetry import timed
 from app.db.worker_session import create_worker_session_factory
 from app.models import Note, NoteProcessingJob, VectorCleanupRequest
 
@@ -16,6 +17,7 @@ class WorkerOutboxRepository:
     def close(self) -> None:
         self._engine.dispose()
 
+    @timed("outbox.claim")
     def claim_pending(
         self,
         *,

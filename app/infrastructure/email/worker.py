@@ -6,6 +6,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.config import get_settings, get_worker_settings
+from app.db.timing import instrument_database
 from app.infrastructure.email.cipher import reveal_email_token
 from app.infrastructure.email.smtp import send_action_email, send_welcome_email
 from app.repositories.email import EmailOutboxRepository
@@ -22,6 +23,7 @@ async def deliver_pending_account_emails() -> None:
     elif url.drivername == "sqlite":
         url = url.set(drivername="sqlite+aiosqlite")
     engine = create_async_engine(url)
+    instrument_database(engine.sync_engine)
     sessions = async_sessionmaker(engine, expire_on_commit=False)
     repository = EmailOutboxRepository()
     sender = EmailDeliveryService(

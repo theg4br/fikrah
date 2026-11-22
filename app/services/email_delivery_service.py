@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.telemetry import timed
 from app.repositories.email import EmailOutboxRepository
 from app.services.auth_ports import EmailDeliveryError
 
@@ -30,6 +31,7 @@ class EmailDeliveryService:
         self._reveal = reveal_token
         self._repository = repository or EmailOutboxRepository()
 
+    @timed("email.delivery")
     async def deliver(self, db: AsyncSession, delivery_id: UUID) -> bool:
         now = datetime.now(timezone.utc)
         claim_token = uuid4()

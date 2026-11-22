@@ -2,6 +2,7 @@
 
 import asyncio
 
+from app.core.telemetry import timed
 from app.services.note_ports import ProcessingDispatchUnavailable
 from app.workers.celery_app import celery_app
 
@@ -27,6 +28,7 @@ def _publish_dispatch_request() -> None:
         )
 
 
+@timed("note.dispatch_notification")
 async def notify_pending_work() -> None:
     """Wake the existing dispatcher without blocking the event loop or retrying."""
     try:
