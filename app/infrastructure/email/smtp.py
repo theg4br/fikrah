@@ -8,6 +8,7 @@ import aiosmtplib
 from jinja2 import Environment, FileSystemLoader, TemplateError, select_autoescape
 
 from app.core.config import get_settings
+from app.core.telemetry import timed
 from app.services.auth_ports import EmailDeliveryError
 
 EMAIL_TEMPLATE_DIRECTORY = Path(__file__).resolve().parents[3] / "static" / "emails"
@@ -51,6 +52,7 @@ def _smtp_settings() -> dict[str, object]:
     }
 
 
+@timed("email.smtp")
 async def _send(message: EmailMessage) -> None:
     settings = _smtp_settings()
     sender = str(settings.pop("sender"))

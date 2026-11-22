@@ -7,6 +7,7 @@ from uuid import UUID
 from qdrant_client import QdrantClient, models
 
 from app.core.config import get_settings
+from app.core.telemetry import timed
 from app.rag.errors import SearchUnavailableError
 
 
@@ -42,6 +43,7 @@ class QdrantNoteVectorStore:
             if self._collection not in collections:
                 raise
 
+    @timed("vectors.upsert")
     def upsert_note(
         self,
         note_id: UUID,
@@ -78,6 +80,7 @@ class QdrantNoteVectorStore:
         finally:
             client.close()
 
+    @timed("vectors.delete")
     def delete_note(self, note_id: UUID) -> None:
         client = self._client()
         try:
@@ -91,6 +94,7 @@ class QdrantNoteVectorStore:
         finally:
             client.close()
 
+    @timed("vectors.search")
     def search_notes(
         self, query_vector: list[float], user_id: UUID, project_id: UUID, limit: int
     ) -> list[tuple[UUID, int, float]]:

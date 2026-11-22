@@ -16,6 +16,7 @@ from app.contracts.chat import (
     MessageSubmissionResult,
     SourceReference,
 )
+from app.core.telemetry import timed
 from app.llm.contracts import ChatHistoryMessage, ChatNoteContext
 from app.llm.lifecycle import run_with_provider
 from app.llm.ports import StructuredTextGenerator
@@ -129,6 +130,7 @@ class ChatService:
             messages=tuple(await self._message_views(db, messages)),
         )
 
+    @timed("chat.total")
     async def send_message(
         self,
         db: AsyncSession,
@@ -326,6 +328,7 @@ class ChatService:
         await self._owned_conversation(db, user_id, conversation_id)
         await db.rollback()
 
+    @timed("chat.persistence")
     async def _save_exchange(
         self,
         db: AsyncSession,

@@ -4,6 +4,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
+from app.core.telemetry import measure, timed
 from app.llm.lifecycle import run_with_provider
 from app.llm.ports import EmbeddingModel, StructuredTextGenerator
 from app.llm.use_cases import analyze_note
@@ -25,6 +26,7 @@ class NoteProcessingService:
         self._embedding_model_factory = embedding_model_factory
         self._stale_processing_after = stale_processing_after
 
+    @timed("note.processing")
     def process(
         self, job_id: UUID, worker_task_id: str, *, terminal_on_error: bool = False
     ) -> None:
@@ -38,14 +40,16 @@ class NoteProcessingService:
             return
 
         try:
-            analysis = run_with_provider(
-                self._text_generator_factory,
-                lambda generator: analyze_note(generator, snapshot.content),
-            )
-            embedding = run_with_provider(
-                self._embedding_model_factory,
-                lambda model: model.embed_note(snapshot.content),
-            )
+            with measure("note.analysis"):
+                analysis = run_with_provider(
+                    self._text_generator_factory,
+                    lambda generator: analyze_note(generator, snapshot.content),
+                )
+            with measure("note.embedding"):
+                embedding = run_with_provider(
+                    self._embedding_model_factory,
+                    lambda model: model.embed_note(snapshot.content),
+                )
 
             def persist_vector() -> None:
                 self._vector_store.upsert_note(

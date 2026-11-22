@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.contracts.search import SearchMatch
+from app.core.telemetry import measure
 from app.llm.lifecycle import run_with_provider
 from app.llm.ports import EmbeddingModel
 from app.rag.errors import SearchUnavailableError
@@ -28,14 +29,16 @@ async def retrieve_current_notes(
 ) -> list[SearchMatch]:
     """Return only vector matches still current and accessible in PostgreSQL."""
     try:
-        query_vector = await asyncio.to_thread(
-            run_with_provider,
-            embedding_model_factory,
-            lambda model: model.embed_query(query),
-        )
-        matches = await asyncio.to_thread(
-            vector_search, query_vector, user_id, project_id, limit
-        )
+        with measure("search.embedding"):
+            query_vector = await asyncio.to_thread(
+                run_with_provider,
+                embedding_model_factory,
+                lambda model: model.embed_query(query),
+            )
+        with measure("search.vectors"):
+            matches = await asyncio.to_thread(
+                vector_search, query_vector, user_id, project_id, limit
+            )
     except Exception as exc:
         if isinstance(exc, SearchUnavailableError):
             raise
@@ -44,9 +47,10 @@ async def retrieve_current_notes(
     if not matches:
         return []
     revisions = {note_id: revision for note_id, revision, _ in matches}
-    notes = await repository.find_completed_notes(
-        db, user_id, project_id, set(revisions)
-    )
+    with measure("search.validation"):
+        notes = await repository.find_completed_notes(
+            db, user_id, project_id, set(revisions)
+        )
     current_notes = {
         note.id: note for note in notes if note.revision == revisions[note.id]
     }

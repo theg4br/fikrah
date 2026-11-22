@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.contracts.search import SearchMatch
+from app.core.telemetry import timed
 from app.llm.ports import EmbeddingModel
 from app.rag.retriever import retrieve_current_notes
 from app.repositories.search import SearchRepository
@@ -25,6 +26,7 @@ class SemanticSearchService:
         self._vector_search = vector_search
         self._repository = repository or SearchRepository()
 
+    @timed("search.total")
     async def retrieve(
         self,
         db: AsyncSession,
