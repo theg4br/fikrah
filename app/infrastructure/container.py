@@ -5,6 +5,7 @@ from app.infrastructure.email.cipher import protect_email_token, reveal_email_to
 from app.infrastructure.email.smtp import send_action_email, send_welcome_email
 from app.infrastructure.identity.google import verify_google_id_token
 from app.infrastructure.rate_limits import RedisBudgetStore
+from app.infrastructure.task_dispatch import notify_pending_work
 from app.llm.factory import LLMProviderFactory
 from app.rag.embeddings import create_embedding_model
 from app.rag.vector_store import search_note_vectors
@@ -40,7 +41,7 @@ chat_service = ChatService(
     search_service=search_service,
     text_generator_factory=LLMProviderFactory.create_text_generator,
 )
-note_service = NoteService()
+note_service = NoteService(notify_processing=notify_pending_work)
 project_service = ProjectService()
 knowledge_connection_service = KnowledgeConnectionService()
 transcription_service = TranscriptionService(

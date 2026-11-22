@@ -15,6 +15,13 @@ from app.models import Note, NoteProcessingJob, Project, User
 
 
 @pytest.fixture(autouse=True)
+def isolated_processing_notifications(monkeypatch):
+    from app.infrastructure.container import note_service
+
+    monkeypatch.setattr(note_service, "_notify_processing", AsyncMock())
+
+
+@pytest.fixture(autouse=True)
 def isolated_request_budgets(monkeypatch):
     from app.infrastructure.container import request_budgets
 

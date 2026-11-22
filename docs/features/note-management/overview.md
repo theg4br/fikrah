@@ -46,3 +46,38 @@ The Celery worker uses Redis as its broker, selects DeepSeek, Gemini, or OpenRou
 ## Verification
 
 Tests cover note create/list/read/update/retry/delete, refinement accept/reject/regenerate actions, duplicate request replay and conflicts, user/project isolation, project deletion cleanup, provider selection, revision/generation-safe worker processing, durable queue dispatch, and Qdrant cleanup.
+
+## Immediate processing dispatch
+
+After committing a new processing intent, `NoteService` calls an injected
+notification port. The infrastructure adapter publishes the existing
+`app.worker.tasks.dispatch_pending_work` Celery task immediately. It does not
+publish note content or run LLM work in the API process. The existing dispatcher
+keeps responsibility for claiming durable rows and publishing processing tasks.
+
+The producer runs off the event loop, disables publish retries, bounds broker
+connect/socket operations to 0.5 seconds, and bounds the awaited notification to
+one second. A notification failure does not undo a saved note or return an error
+for an already committed write. The periodic dispatcher remains enabled at its
+existing interval to recover missed notifications and stale dispatches. Existing
+SQL queries, lock order, transaction boundaries, processing generations, and
+worker claim rules remain unchanged.
+
+Creation, content/title updates, explicit reprocessing, refinement regeneration,
+and refinement acceptance notify only after commit. Idempotent creation replay,
+already-active processing, validation errors, and failed commits do not create
+additional notifications. The response snapshots the saved note before notifying
+so a fast worker cannot change the initial response while it is being built.
+
+On 2026-11-22, existing live jobs showed dispatch waits of 6.13, 18.36, and 18.97
+seconds with a 30-second periodic dispatcher. Three isolated real-provider runs,
+including an explicit retry, completed with Beat disabled: dispatch waits were
+108.16, 27.29, and 17.11 milliseconds; HTTP save/retry responses took 70.38, 32.16,
+and 20.22 milliseconds; total processing took 4.42, 2.76, and 3.05 seconds.
+These synthetic short-note measurements are not a production latency guarantee.
+
+The ignored local web tester now polls pending notes, bounds concurrent reads,
+stops polling terminal states, rejects results from a previous account/project,
+and preserves unsaved edits. It previously required manual refresh and could
+display `Queued` after processing had already completed. This UI fix remains
+local; the mobile API and its polling contract are unchanged.

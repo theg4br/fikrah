@@ -1,6 +1,8 @@
 """Note application use cases and processing lifecycle rules."""
 
 import json
+import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import asdict
 from hashlib import sha256
 from uuid import UUID
@@ -22,11 +24,32 @@ from app.models import (
 )
 from app.repositories.notes import NoteRepository
 from app.services.note_errors import NoteFailure, NoteServiceError
+from app.services.note_ports import ProcessingDispatchUnavailable
+
+logger = logging.getLogger(__name__)
 
 
 class NoteService:
-    def __init__(self, repository: NoteRepository | None = None) -> None:
+    def __init__(
+        self,
+        repository: NoteRepository | None = None,
+        notify_processing: Callable[[], Awaitable[None]] | None = None,
+    ) -> None:
         self._repository = repository or NoteRepository()
+        self._notify_processing = notify_processing
+
+    async def _processing_saved(self, db: AsyncSession, note: Note) -> NoteResult:
+        # Snapshot the committed result before an immediately started worker changes it.
+        await self._repository.refresh_note(db, note)
+        result = self._result(note)
+        if self._notify_processing is not None:
+            try:
+                await self._notify_processing()
+            except ProcessingDispatchUnavailable:
+                logger.warning(
+                    "Immediate processing notification unavailable; durable work awaits dispatcher"
+                )
+        return result
 
     async def _owned_note(
         self, db: AsyncSession, user_id: UUID, note_id: UUID, *, lock: bool = False
@@ -98,8 +121,7 @@ class NoteService:
                 raise
             note = await self._replay_idempotent_note(db, previous, fingerprint)
             return self._result(note)
-        await self._repository.refresh_note(db, note)
-        return self._result(note)
+        return await self._processing_saved(db, note)
 
     async def _replay_idempotent_note(
         self, db: AsyncSession, previous: NoteIdempotencyKey, fingerprint: str
@@ -148,8 +170,7 @@ class NoteService:
         note.processing_status = "queued"
         self._enqueue(db, note)
         await db.commit()
-        await self._repository.refresh_note(db, note)
-        return self._result(note)
+        return await self._processing_saved(db, note)
 
     async def retry_processing(
         self, db: AsyncSession, user_id: UUID, note_id: UUID
@@ -161,8 +182,7 @@ class NoteService:
         note.processing_status = "queued"
         self._enqueue(db, note)
         await db.commit()
-        await self._repository.refresh_note(db, note)
-        return self._result(note)
+        return await self._processing_saved(db, note)
 
     async def regenerate_refinement(
         self,
@@ -187,8 +207,7 @@ class NoteService:
         note.processing_status = "queued"
         self._enqueue(db, note)
         await db.commit()
-        await self._repository.refresh_note(db, note)
-        return self._result(note)
+        return await self._processing_saved(db, note)
 
     async def accept_refinement(
         self,
@@ -215,8 +234,7 @@ class NoteService:
         note.processing_status = "queued"
         self._enqueue(db, note)
         await db.commit()
-        await self._repository.refresh_note(db, note)
-        return self._result(note)
+        return await self._processing_saved(db, note)
 
     async def update_refinement_proposal(
         self,
