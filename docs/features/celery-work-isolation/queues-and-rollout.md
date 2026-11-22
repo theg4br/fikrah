@@ -74,6 +74,45 @@ and keeping consumers for the new queues until their pending/reserved/retry work
 is drained. Simply starting an old worker that only knows `celery` strands new
 queue messages. No automated queue deletion or rollback is performed.
 
+## Partial publication and recovery
+
+The dispatcher still commits its PostgreSQL claim before publishing. A batch
+reuses one bounded broker connection, disables producer retries, and checks a
+publication budget before each message. `FIKRAH_DISPATCH_PUBLISH_BUDGET_SECONDS`
+is a positive integer (default 10). Socket/connect waits are 0.5 seconds; neither
+publisher changes shared broker transport configuration. The API's existing
+one-second wake-up budget remains unchanged.
+
+On failure or budget exhaustion, the dispatcher stops further publishing and
+releases the failed/uncertain item plus the unattempted suffix of both work
+lists. Successfully published items retain their dispatch metadata. Compare-and-
+reset updates clear only dispatch timestamps owned by this exact batch; note
+jobs must still be queued without a processing owner/start time, and cleanup
+requests must remain incomplete. Newer claims, active jobs and completed records
+are preserved. Both metadata updates commit in one worker-owned transaction;
+no note content/status or attempt count is changed by release.
+
+Released rows are eligible on the next normal dispatcher wake (Beat defaults to
+30 seconds, or an API notification), rather than waiting the existing 300-second
+stale dispatch lease. A broker can accept a message before reporting failure;
+release is deliberately safe for at-least-once delivery, not proof of exactly-once
+publication. Duplicate note deliveries still use attempt/revision/generation
+fences, and repeated vector deletion is idempotent. An accepted vector deletion
+can still be running when its uncertain publication is released.
+
+If the process dies before release, or the database also prevents release, the
+existing stale dispatch/processing leases remain the recovery fallback. The
+original publish exception remains the task failure; release failures produce a
+sanitized warning. A fully published batch does not release rows just because
+its connection closes unsuccessfully afterward.
+
+The 10-second budget starts **after** the SQL claim and is checked before issuing
+the next publish. One in-progress publish, connection cleanup, DNS/transport
+behavior, database claim/release waits, or process scheduling can extend wall
+clock time. This is not a hard whole-task deadline. Dispatch fairness under
+locked candidate rows, SQL bounds, independent cleanup leases and durable
+lifetime attempt budgets are still separate work.
+
 ## Verification and remaining work
 
 Unit tests exercise registered/name-only publication, Beat routing, default and
@@ -83,9 +122,12 @@ prefork workers with synthetic providers. It blocks the only note slot, proves
 email/dispatch/vector work completes, then drains note and legacy retry work.
 It sends no SMTP or paid LLM requests and makes no production capacity claim.
 
-Partial-publication recovery still uses the existing stale dispatch timer in
-this step. It is the next part of the same feature; processing crash recovery,
-durable lifetime retry budgets and SQL lock/statement bounds remain separate.
+Fault-injection tests cover failure at every position of a mixed batch,
+connection failure, budget exhaustion, release failure, immediate eligibility,
+transaction rollback, and fencing against active/newer/completed work. A real
+PostgreSQL regression proves an update rechecks its timestamp fence after a
+concurrent claim commits. Processing crash recovery, durable lifetime retry
+budgets and SQL lock/statement bounds remain separate.
 
 ## References
 

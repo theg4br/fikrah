@@ -344,7 +344,7 @@ def test_dispatcher_publishes_durable_pending_note_job(
     monkeypatch.setattr(
         tasks.process_note_job,
         "apply_async",
-        lambda args: published.append(args[0]),
+        lambda args, **kwargs: published.append(args[0]),
     )
 
     tasks.dispatch_pending_work.run()

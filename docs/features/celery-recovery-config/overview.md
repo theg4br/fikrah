@@ -14,8 +14,10 @@ settings for retry and stale-job recovery behavior.
   failures are terminal after a claimed attempt. Each note attempt has a
   240-second soft and 270-second hard limit under the prefork pool; see
   [attempt limits and retry ownership](../processing-deadlines/note-attempt-limits-and-retries.md).
-- The dispatcher runs every 30 seconds, dispatches at most 100 rows per work
-  type, and recovers queued jobs whose dispatch is older than five minutes.
+- The dispatcher runs every 30 seconds, claims at most 100 rows per work
+  type, and recovers stale dispatches after five minutes. Failed/unattempted
+  publication claims are safely released for the next wake when possible;
+  see [queue isolation and partial publication](../celery-work-isolation/queues-and-rollout.md).
 - Processing jobs that remain active for 15 minutes become eligible for
   recovery. Operators can tune this to their LLM provider latency.
 - The Redis visibility timeout defaults to one hour.
@@ -34,6 +36,7 @@ settings for retry and stale-job recovery behavior.
 | `FIKRAH_DISPATCH_STALE_AFTER_SECONDS` | `300` | Age at which an unpublished queued job is eligible for republishing. |
 | `FIKRAH_PROCESSING_STALE_AFTER_SECONDS` | `900` | Age at which a processing job is eligible for recovery. |
 | `FIKRAH_DISPATCH_INTERVAL_SECONDS` | `30` | Celery Beat reconciliation interval. |
+| `FIKRAH_DISPATCH_PUBLISH_BUDGET_SECONDS` | `10` | Budget checked before each message after batch claim. |
 | `FIKRAH_DISPATCH_BATCH_SIZE` | `100` | Maximum jobs or cleanup requests claimed per dispatch pass. |
 
 The selected limits are starting defaults, not a production capacity guarantee.
