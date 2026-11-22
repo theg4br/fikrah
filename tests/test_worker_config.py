@@ -41,3 +41,27 @@ def test_worker_settings_reject_invalid_positive_integer(
 ) -> None:
     with pytest.raises(ValueError, match="FIKRAH_DISPATCH_BATCH_SIZE must be a positive integer"):
         get_worker_settings({"FIKRAH_DISPATCH_BATCH_SIZE": value})
+
+
+def test_note_deadline_defaults_and_overrides():
+    defaults = get_worker_settings({})
+    assert defaults.note_soft_time_limit_seconds == 240
+    assert defaults.note_hard_time_limit_seconds == 270
+    custom = get_worker_settings({
+        "FIKRAH_NOTE_SOFT_TIME_LIMIT_SECONDS": "10",
+        "FIKRAH_NOTE_HARD_TIME_LIMIT_SECONDS": "20",
+    })
+    assert custom.note_soft_time_limit_seconds == 10
+    assert custom.note_hard_time_limit_seconds == 20
+
+
+@pytest.mark.parametrize("values, message", [
+    ({"FIKRAH_NOTE_SOFT_TIME_LIMIT_SECONDS": "0"}, "positive integer"),
+    ({"FIKRAH_NOTE_HARD_TIME_LIMIT_SECONDS": "invalid"}, "positive integer"),
+    ({"FIKRAH_NOTE_SOFT_TIME_LIMIT_SECONDS": "270"}, "SOFT_TIME_LIMIT_SECONDS must be less"),
+    ({"FIKRAH_PROCESSING_STALE_AFTER_SECONDS": "270"}, "HARD_TIME_LIMIT_SECONDS must be less"),
+    ({"FIKRAH_CELERY_VISIBILITY_TIMEOUT_SECONDS": "270"}, "HARD_TIME_LIMIT_SECONDS must be less"),
+])
+def test_worker_rejects_invalid_or_unsafe_note_deadlines(values, message):
+    with pytest.raises(ValueError, match=message):
+        get_worker_settings(values)

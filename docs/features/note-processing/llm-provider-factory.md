@@ -30,7 +30,7 @@ DeepSeek and OpenRouter use OpenAI-compatible Chat Completions endpoints with JS
 - Workers use late acknowledgements. Tasks are idempotent by database job ID and note revision; duplicate delivery does not replace a newer revision.
 - Qdrant stores one vector point per note ID with user/project/revision metadata. Raw note text stays in PostgreSQL, not in Qdrant payloads.
 - Celery task functions delegate note analysis and indexing to `NoteProcessingService`. A PostgreSQL persistence adapter checks the note revision and processing generation before saving, and the Qdrant adapter owns vector collection creation, upsert, search, and delete operations.
-- A failed LLM or Qdrant request retries up to three times by default with exponential delay and jitter, then marks the current note revision `failed` while retaining its content. Retry count and delay are configurable; stale dispatch/processing recovery is documented in [`docs/features/celery-recovery-config/overview.md`](../celery-recovery-config/overview.md).
+- A classified transient LLM or Qdrant failure retries up to three times by default with exponential delay and jitter, then marks the current note revision `failed` while retaining its content. Permanent failures are terminal without automatic replay. Retry count and delay are configurable; stale dispatch/processing recovery is documented in [`docs/features/celery-recovery-config/overview.md`](../celery-recovery-config/overview.md).
 
 ## Configuration
 
@@ -77,3 +77,5 @@ absent; the explicit setting preserves that behavior across SDK upgrades.
 Celery owns note retries, so a provider does not silently multiply the worker
 retry budget. Chat/search requests do not gain an automatic provider retry.
 Network inactivity timeouts are not whole-operation deadlines.
+
+The note task uses bounded prefork attempts; see [attempt limits and retry ownership](../processing-deadlines/note-attempt-limits-and-retries.md) for failure classification, recovery boundaries, and pool requirements.
