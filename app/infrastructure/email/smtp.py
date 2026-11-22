@@ -12,6 +12,10 @@ from app.core.telemetry import timed
 from app.services.auth_ports import EmailDeliveryError
 
 EMAIL_TEMPLATE_DIRECTORY = Path(__file__).resolve().parents[3] / "static" / "emails"
+EMAIL_LOGO_PATH = (
+    EMAIL_TEMPLATE_DIRECTORY.parent / "assets" / "fikrah-icon-light-mode.png"
+)
+EMAIL_LOGO_CID = "fikrah-logo@fikrah"
 EMAIL_TEMPLATES = Environment(
     loader=FileSystemLoader(EMAIL_TEMPLATE_DIRECTORY),
     autoescape=select_autoescape(("html", "xml")),
@@ -28,6 +32,24 @@ ACTION_EMAILS = {
         "text_action": "Reset your FIKRAH password",
     },
 }
+
+
+def _add_html_alternative(
+    message: EmailMessage, template_name: str, **context: str
+) -> None:
+    template = EMAIL_TEMPLATES.get_template(template_name)
+    message.add_alternative(
+        template.render(logo_cid=EMAIL_LOGO_CID, **context), subtype="html"
+    )
+    html_part = message.get_payload()[-1]
+    html_part.add_related(
+        EMAIL_LOGO_PATH.read_bytes(),
+        maintype="image",
+        subtype="png",
+        cid=f"<{EMAIL_LOGO_CID}>",
+        filename=EMAIL_LOGO_PATH.name,
+        disposition="inline",
+    )
 
 
 def _smtp_settings() -> dict[str, object]:
@@ -86,8 +108,7 @@ async def send_action_email(recipient: str, token: str, purpose: str) -> None:
             f"{email_action['text_action']}: {action_url}\n\n"
             "If you did not request this, you can ignore this email."
         )
-        template = EMAIL_TEMPLATES.get_template(email_action["template"])
-        message.add_alternative(template.render(action_url=action_url), subtype="html")
+        _add_html_alternative(message, email_action["template"], action_url=action_url)
         await _send(message)
     except (
         RuntimeError,
@@ -109,8 +130,7 @@ async def send_welcome_email(recipient: str) -> None:
             "Capture your thoughts, connect your knowledge, and rediscover your ideas.\n\n"
             "Your thoughts, connected."
         )
-        template = EMAIL_TEMPLATES.get_template("welcome.html")
-        message.add_alternative(template.render(), subtype="html")
+        _add_html_alternative(message, "welcome.html")
         await _send(message)
     except (
         RuntimeError,

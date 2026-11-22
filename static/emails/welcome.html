@@ -1,32 +1,22 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="light">
-    <title>Welcome to FIKRAH</title>
-  </head>
-  <body style="margin:0;background:#f4f6fb;color:#172033;font-family:Arial,Helvetica,sans-serif;">
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">
-      Your personal knowledge space is ready.
-    </div>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6fb;padding:32px 12px;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;">
-            <tr>
-              <td style="padding:36px 40px;">
-                <p style="margin:0;color:#4f46e5;font-size:14px;font-weight:700;letter-spacing:2px;">FIKRAH</p>
-                <h1 style="margin:24px 0 12px;font-size:28px;line-height:1.25;">Welcome to FIKRAH!</h1>
-                <p style="margin:0;color:#536078;font-size:16px;line-height:1.6;">
-                  Your personal knowledge space is ready. Capture your thoughts, connect your knowledge, and rediscover ideas whenever you need them.
-                </p>
-                <p style="margin:24px 0 0;color:#4f46e5;font-size:16px;font-weight:700;">Your thoughts, connected.</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>
+{% extends "_base.html" %}
+{% block title %}Welcome to FIKRAH{% endblock %}
+{% block preheader %}Your personal knowledge space is ready. Capture a thought. See where it takes you.{% endblock %}
+{% block eyebrow %}HELLO / YOUR NEXT CHAPTER{% endblock %}
+{% block heading %}Welcome to FIKRAH!{% endblock %}
+{% block introduction %}A home for the little thoughts that turn into big ideas.{% endblock %}
+{% block content %}
+<p style="margin:0 0 26px;color:#55606D;font-size:15px;line-height:1.8;">Your personal knowledge space is ready. Start with a passing thought, something you learned, or an idea you don't want to lose.</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+{% for number, background, ink, title, description in [
+  ('01', '#C6F04A', '#101114', 'Capture the spark.', 'Save your thoughts in General, or give a project a space of its own.'),
+  ('02', '#2547E8', '#EEF0F2', 'Find the connections.', 'Review clearer wording and discover ideas that share a common thread.'),
+  ('03', '#5F31C4', '#EEF0F2', 'Ask. Rediscover. Go further.', "Search by meaning and chat with your project's knowledge, with sources you can return to.")
+] %}
+  <tr>
+    <td width="42" valign="top" style="padding:0 12px 24px 0;"><table role="presentation" width="32" cellspacing="0" cellpadding="0"><tr><td height="32" align="center" bgcolor="{{ background }}" style="background:{{ background }};border-radius:8px;color:{{ ink }};font-size:12px;font-weight:700;">{{ number }}</td></tr></table></td>
+    <td valign="top" style="padding-bottom:24px;"><p style="margin:0 0 6px;color:#101114;font-size:16px;font-weight:700;">{{ title }}</p><p style="margin:0;color:#55606D;font-size:14px;line-height:1.8;">{{ description }}</p></td>
+  </tr>
+{% endfor %}
+</table>
+<p style="margin:4px 0 0;padding:18px;background:#C6F04A;border-radius:10px;color:#101114;font-size:14px;font-weight:700;line-height:1.8;">Capture today. Connect tomorrow.</p>
+{% endblock %}

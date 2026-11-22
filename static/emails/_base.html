@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>{% block title %}{% endblock %}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#EEF0F2;color:#101114;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">{% block preheader %}{% endblock %}</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" bgcolor="#EEF0F2" style="width:100%;background:#EEF0F2;">
+      <tr><td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="width:100%;max-width:600px;">
+          <tr><td style="padding:0 0 22px;">
+            <table role="presentation" cellspacing="0" cellpadding="0"><tr>
+              <td width="44" height="44" align="center"><img src="cid:{{ logo_cid }}" alt="FIKRAH" width="44" height="44" style="display:block;width:44px;height:44px;border:0;border-radius:12px;"></td>
+              <td style="padding-left:12px;color:#101114;font-size:16px;font-weight:800;letter-spacing:3px;">FIKRAH</td>
+            </tr></table>
+          </td></tr>
+          <tr><td bgcolor="#101114" style="background:#101114;border-radius:20px 20px 0 0;padding:32px 28px 36px;">
+            <p style="margin:0 0 26px;color:#C6F04A;font-size:11px;font-weight:700;letter-spacing:2px;line-height:1.7;">{% block eyebrow %}{% endblock %}</p>
+            <h1 style="margin:0;color:#EEF0F2;font-size:36px;line-height:1.14;letter-spacing:-1.2px;font-weight:800;">{% block heading %}{% endblock %}</h1>
+            <p style="margin:20px 0 0;color:#EEF0F2;font-size:16px;line-height:1.75;">{% block introduction %}{% endblock %}</p>
+          </td></tr>
+          <tr><td bgcolor="#FFFFFF" style="background:#FFFFFF;padding:28px;border:1px solid #55606D;border-top:0;border-radius:0 0 20px 20px;">
+            {% block content %}{% endblock %}
+          </td></tr>
+          <tr><td style="padding:24px 8px 0;text-align:center;">
+            <p style="margin:0 0 8px;color:#101114;font-size:13px;font-weight:700;">Your thoughts, connected.</p>
+            <p style="margin:0;color:#55606D;font-size:12px;line-height:1.7;">A little space for your next big idea. &middot; FIKRAH</p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>
