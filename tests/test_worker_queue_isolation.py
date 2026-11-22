@@ -133,7 +133,9 @@ def test_role_workers_progress_while_note_is_blocked_and_drain_legacy_retries(
             assert all(w.poll() is None for w in workers), "test worker exited"
             return all("ready." in log.read_text() for log in logs)
 
-        _wait_until(ready)
+        # Bootstrap includes four fresh SDK imports and prefork pools. Keep it
+        # separate from the short deadlines proving progress after readiness.
+        _wait_until(ready, seconds=120)
         publisher.send_task(
             "app.worker.tasks.process_note_job", args=[str(job_id)], retry=False
         )
