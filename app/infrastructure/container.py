@@ -3,6 +3,7 @@
 from app.core.config import get_settings
 from app.infrastructure.email.cipher import protect_email_token, reveal_email_token
 from app.infrastructure.email.smtp import send_action_email, send_welcome_email
+from app.infrastructure.execution import BoundedExecutor
 from app.infrastructure.identity.google import verify_google_id_token
 from app.infrastructure.rate_limits import RedisBudgetStore
 from app.infrastructure.task_dispatch import notify_pending_work
@@ -24,6 +25,14 @@ request_budgets = RequestBudgets(
     llm_limit=lambda: get_settings().fikrah_llm_limit_per_minute,
 )
 
+search_executor = BoundedExecutor(get_settings().fikrah_search_executor_workers, "search")
+text_executor = BoundedExecutor(get_settings().fikrah_llm_executor_workers, "text")
+
+
+def close_api_executors() -> None:
+    search_executor.close()
+    text_executor.close()
+
 auth_service = AuthService(
     send_action_email=send_action_email,
     protect_email_token=protect_email_token,
@@ -36,10 +45,12 @@ auth_service = AuthService(
 search_service = SemanticSearchService(
     embedding_model_factory=create_embedding_model,
     vector_search=search_note_vectors,
+    run_blocking=search_executor.run,
 )
 chat_service = ChatService(
     search_service=search_service,
     text_generator_factory=LLMProviderFactory.create_text_generator,
+    run_blocking=text_executor.run,
 )
 note_service = NoteService(notify_processing=notify_pending_work)
 project_service = ProjectService()

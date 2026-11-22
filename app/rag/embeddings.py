@@ -4,6 +4,7 @@ from google import genai
 from google.genai import types
 
 from app.core.config import get_settings
+from app.core.execution import check_execution_budget, remaining_time
 from app.core.telemetry import timed
 from app.llm.ports import EmbeddingModel
 
@@ -15,7 +16,8 @@ class GeminiEmbeddingModel:
         self._client = genai.Client(
             api_key=api_key,
             http_options=types.HttpOptions(
-                timeout=90_000, retry_options=types.HttpRetryOptions(attempts=1)
+                timeout=max(1, int(remaining_time(90) * 1000)),
+                retry_options=types.HttpRetryOptions(attempts=1),
             ),
         )
 
@@ -31,6 +33,7 @@ class GeminiEmbeddingModel:
         return self._embed(query, "RETRIEVAL_QUERY")
 
     def _embed(self, content: str, task_type: str) -> list[float]:
+        check_execution_budget()
         response = self._client.models.embed_content(
             model=self._model,
             contents=content,
@@ -38,6 +41,7 @@ class GeminiEmbeddingModel:
                 task_type=task_type, output_dimensionality=self._dimensions
             ),
         )
+        check_execution_budget()
         if not response.embeddings or not response.embeddings[0].values:
             raise ValueError("Gemini returned an empty embedding")
         return response.embeddings[0].values

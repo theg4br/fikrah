@@ -12,9 +12,11 @@ scaling risks; an idle healthy development stack does not establish load capacit
 2. **Implemented: single-attempt text/embedding SDK calls, classified worker
    retries, and prefork note attempt soft/hard limits.** See
    [note limits and retry ownership](../../features/processing-deadlines/note-attempt-limits-and-retries.md).
-   Pending: API operation-wide deadlines, executor / concurrency isolation, and
-   durable lifetime attempt budgets. Preserve public error contracts and
-   cancellation safety; cancelling a thread await does not stop its SDK call.
+   **Implemented: search/chat preparation budgets and separate bounded API
+   executors.** See [API execution budgets](../../features/api-execution-budgets/search-and-chat-execution.md).
+   Pending: stronger async transport cancellation, database/complete-response
+   bounds, and durable lifetime attempt budgets. Cancelling a thread await does
+   not stop a running SDK read; admission retains its slot until cleanup finishes.
 3. Pending: isolate dispatcher/email/vector cleanup work from long note processing;
    make partial publication and recovery timely without losing durable intents.
 4. Pending: remove SMTP waiting from authentication responses while preserving

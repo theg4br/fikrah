@@ -7,6 +7,7 @@ from contextlib import suppress
 from threading import Event
 
 from app.contracts.chat import ChatCompleted, ChatDelta, MessageSubmissionResult
+from app.core.execution import check_execution_budget
 
 
 async def stream_exchange(
@@ -17,6 +18,7 @@ async def stream_exchange(
     stopped = Event()
 
     def emit(content: str) -> None:
+        check_execution_budget()
         if stopped.is_set():
             raise RuntimeError("Chat stream was cancelled")
         pending = asyncio.run_coroutine_threadsafe(queue.put(ChatDelta(content)), loop)
@@ -26,6 +28,7 @@ async def stream_exchange(
                     pending.result(timeout=0.1)
                     return
                 except FutureTimeout:
+                    check_execution_budget()
                     if stopped.is_set():
                         raise RuntimeError("Chat stream was cancelled") from None
         finally:

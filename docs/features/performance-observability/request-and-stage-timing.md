@@ -98,3 +98,11 @@ an exact OpenAPI comparison against `dev`, offline Alembic metadata, and all fou
 existing Celery registered names passed. Two synthetic notes also completed on
 an actual prefork worker with distinct traces and content-free JSON output;
 provider/vector calls were substitutes, so this is not an LLM latency benchmark.
+
+## Bounded API execution
+
+`executor.search` and `executor.text` measure admitted blocking work and rejected
+admission (error outcome). They contain no provider text or raw error strings.
+After coroutine cancellation, the caller timing can end before the actual thread
+finishes; the slot remains occupied until cleanup. These durations are not active
+thread gauges. See [search/chat execution budgets](../api-execution-budgets/search-and-chat-execution.md).

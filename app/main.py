@@ -15,6 +15,7 @@ from app.api.v1.transcriptions import router as transcription_router
 from app.core.config import get_settings
 from app.core.security import validate_jwt_secret
 from app.db.session import close_database, initialize_database
+from app.infrastructure.container import close_api_executors
 from app.infrastructure.observability import start_timing_logs, stop_timing_logs
 
 
@@ -30,6 +31,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        close_api_executors()
         try:
             await close_database()
         finally:
