@@ -7,6 +7,23 @@ x-local-smtp: &local-smtp
   SMTP_USE_TLS: "false"
   SMTP_START_TLS: "false"
 
+x-worker: &worker
+  build: .
+  env_file:
+    - .env
+  environment:
+    <<: *local-smtp
+    DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-fikrah}
+    REDIS_URL: redis://redis:6379/0
+    QDRANT_URL: http://qdrant:6333
+  depends_on: &worker-dependencies
+    migrate:
+      condition: service_completed_successfully
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -107,30 +124,67 @@ services:
     restart: unless-stopped
 
   worker:
-    build: .
-    env_file:
-      - .env
-    environment:
-      <<: *local-smtp
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-fikrah}
-      REDIS_URL: redis://redis:6379/0
-      QDRANT_URL: http://qdrant:6333
+    <<: *worker
+    stop_grace_period: 300s
+    depends_on:
+      <<: *worker-dependencies
+      qdrant:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
     command:
       - celery
       - -A
       - app.workers.celery_app:celery_app
       - worker
       - --loglevel=info
+      - --pool=prefork
+      - --queues=fikrah.notes,celery
+      - --concurrency=${FIKRAH_NOTE_WORKER_CONCURRENCY:-4}
+
+  dispatcher-worker:
+    <<: *worker
+    command:
+      - celery
+      - -A
+      - app.workers.celery_app:celery_app
+      - worker
+      - --loglevel=info
+      - --pool=prefork
+      - --queues=fikrah.dispatch
+      - --concurrency=${FIKRAH_DISPATCH_WORKER_CONCURRENCY:-1}
+
+  email-worker:
+    <<: *worker
     depends_on:
-      migrate:
-        condition: service_completed_successfully
-      redis:
-        condition: service_healthy
-      qdrant:
-        condition: service_healthy
+      <<: *worker-dependencies
       mailpit:
         condition: service_healthy
-    restart: unless-stopped
+    command:
+      - celery
+      - -A
+      - app.workers.celery_app:celery_app
+      - worker
+      - --loglevel=info
+      - --pool=prefork
+      - --queues=fikrah.emails
+      - --concurrency=${FIKRAH_EMAIL_WORKER_CONCURRENCY:-1}
+
+  vector-worker:
+    <<: *worker
+    depends_on:
+      <<: *worker-dependencies
+      qdrant:
+        condition: service_healthy
+    command:
+      - celery
+      - -A
+      - app.workers.celery_app:celery_app
+      - worker
+      - --loglevel=info
+      - --pool=prefork
+      - --queues=fikrah.vectors
+      - --concurrency=${FIKRAH_VECTOR_WORKER_CONCURRENCY:-1}
 
   scheduler:
     build: .
@@ -151,8 +205,6 @@ services:
       migrate:
         condition: service_completed_successfully
       redis:
-        condition: service_healthy
-      qdrant:
         condition: service_healthy
     restart: unless-stopped
 

@@ -17,8 +17,11 @@ scaling risks; an idle healthy development stack does not establish load capacit
    Pending: stronger async transport cancellation, database/complete-response
    bounds, and durable lifetime attempt budgets. Cancelling a thread await does
    not stop a running SDK read; admission retains its slot until cleanup finishes.
-3. Pending: isolate dispatcher/email/vector cleanup work from long note processing;
-   make partial publication and recovery timely without losing durable intents.
+3. **Implemented: separate note/legacy, dispatcher, email and vector queues and
+   prefork workers, plus bounded publication and fenced unpublished-claim release.**
+   See [queue isolation and rollout](../../features/celery-work-isolation/queues-and-rollout.md).
+   Legacy queues/retries are retained; crashes/release failures still use the
+   existing leases. Pending: SQL candidate fairness and hard database bounds.
 4. Pending: remove SMTP waiting from authentication responses while preserving
    durable delivery, retry fencing, and mobile verification/reset workflows.
 5. Pending: replace full-project connection scans and reduce lock duration. Worker

@@ -49,7 +49,7 @@ Optional model/dimension variables are listed above; `QDRANT_API_KEY` and `QDRAN
 Run the combined Celery worker and single Beat scheduler with:
 
 ```bash
-celery -A app.workers.celery_app:celery_app worker --beat --loglevel=INFO
+docker compose up -d worker dispatcher-worker email-worker vector-worker scheduler
 ```
 
 Only one Beat scheduler should run for this initial deployment command.

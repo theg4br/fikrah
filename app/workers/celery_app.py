@@ -12,6 +12,7 @@ from celery.signals import (
 
 from app.core.config import get_settings, get_worker_settings
 from app.infrastructure.observability import start_timing_logs, stop_timing_logs
+from app.workers.routing import LEGACY_QUEUE, TASK_QUEUES, TASK_ROUTES
 
 settings = get_worker_settings()
 
@@ -21,6 +22,9 @@ celery_app = Celery(
     include=["app.workers.tasks"],
 )
 celery_app.conf.update(
+    task_default_queue=LEGACY_QUEUE,
+    task_queues=TASK_QUEUES,
+    task_routes=TASK_ROUTES,
     task_ignore_result=True,
     task_serializer="json",
     accept_content=["json"],

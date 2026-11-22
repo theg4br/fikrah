@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 
 from app.core.telemetry import timed
 from app.db.worker_session import create_worker_session_factory
@@ -86,6 +86,44 @@ class WorkerOutboxRepository:
                 request.dispatched_at = now
                 cleanup_ids.append(request.id)
         return job_ids, cleanup_ids
+
+    @timed("outbox.release_unpublished")
+    def release_unpublished(
+        self,
+        *,
+        job_ids: list[UUID],
+        cleanup_ids: list[UUID],
+        dispatched_at: datetime,
+    ) -> None:
+        """Release only this batch's unstarted/uncompleted dispatch metadata.
+
+        A broker failure may be ambiguous. Workers still fence duplicate note
+        deliveries, and vector deletion is idempotent. Never clear a newer claim.
+        These updates touch dispatch metadata only, not notes or attempt owners.
+        """
+        with self._sessions.begin() as session:
+            if job_ids:
+                session.execute(
+                    update(NoteProcessingJob)
+                    .where(
+                        NoteProcessingJob.id.in_(job_ids),
+                        NoteProcessingJob.dispatched_at == dispatched_at,
+                        NoteProcessingJob.status == "queued",
+                        NoteProcessingJob.started_at.is_(None),
+                        NoteProcessingJob.worker_task_id.is_(None),
+                    )
+                    .values(dispatched_at=None)
+                )
+            if cleanup_ids:
+                session.execute(
+                    update(VectorCleanupRequest)
+                    .where(
+                        VectorCleanupRequest.id.in_(cleanup_ids),
+                        VectorCleanupRequest.dispatched_at == dispatched_at,
+                        VectorCleanupRequest.completed_at.is_(None),
+                    )
+                    .values(dispatched_at=None)
+                )
 
     def pending_vector_cleanup(self, cleanup_id: UUID) -> UUID | None:
         with self._sessions() as session:

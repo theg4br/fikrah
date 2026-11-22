@@ -54,6 +54,18 @@ class Settings(BaseSettings):
     fikrah_celery_max_retries: str = Field(
         default="3", validation_alias="FIKRAH_CELERY_MAX_RETRIES"
     )
+    fikrah_note_worker_concurrency: int = Field(
+        default=4, ge=1, validation_alias="FIKRAH_NOTE_WORKER_CONCURRENCY"
+    )
+    fikrah_dispatch_worker_concurrency: int = Field(
+        default=1, ge=1, validation_alias="FIKRAH_DISPATCH_WORKER_CONCURRENCY"
+    )
+    fikrah_email_worker_concurrency: int = Field(
+        default=1, ge=1, validation_alias="FIKRAH_EMAIL_WORKER_CONCURRENCY"
+    )
+    fikrah_vector_worker_concurrency: int = Field(
+        default=1, ge=1, validation_alias="FIKRAH_VECTOR_WORKER_CONCURRENCY"
+    )
     fikrah_celery_retry_backoff_seconds: str = Field(
         default="5", validation_alias="FIKRAH_CELERY_RETRY_BACKOFF_SECONDS"
     )
@@ -77,6 +89,9 @@ class Settings(BaseSettings):
     )
     fikrah_dispatch_batch_size: str = Field(
         default="100", validation_alias="FIKRAH_DISPATCH_BATCH_SIZE"
+    )
+    fikrah_dispatch_publish_budget_seconds: str = Field(
+        default="10", validation_alias="FIKRAH_DISPATCH_PUBLISH_BUDGET_SECONDS"
     )
 
     qdrant_url: str | None = Field(default=None, validation_alias="QDRANT_URL")
@@ -145,6 +160,7 @@ class WorkerSettings:
     broker_visibility_timeout_seconds: int
     note_soft_time_limit_seconds: int
     note_hard_time_limit_seconds: int
+    dispatch_publish_budget_seconds: int
 
 
 def get_settings(environ: Mapping[str, str] | None = None) -> Settings:
@@ -176,6 +192,10 @@ def get_worker_settings(
         return value
 
     worker = WorkerSettings(
+        dispatch_publish_budget_seconds=positive_int(
+            "FIKRAH_DISPATCH_PUBLISH_BUDGET_SECONDS",
+            settings.fikrah_dispatch_publish_budget_seconds,
+        ),
         max_retries=positive_int(
             "FIKRAH_CELERY_MAX_RETRIES", settings.fikrah_celery_max_retries
         ),
