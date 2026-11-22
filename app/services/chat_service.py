@@ -24,6 +24,7 @@ from app.models import ChatConversation, ChatMessage, Project
 from app.rag.errors import SearchUnavailableError
 from app.repositories.chat import ChatRepository
 from app.services.chat_errors import ChatFailure, ChatServiceError
+from app.services.chat_social import social_reply
 from app.services.search_errors import SearchProjectNotFound
 from app.services.search_service import SemanticSearchService
 
@@ -137,6 +138,11 @@ class ChatService:
         conversation = await self._owned_conversation(
             db, user_id, conversation_id, lock=True
         )
+        greeting = social_reply(body.content)
+        if greeting is not None:
+            return await self._save_exchange(
+                db, conversation, body, greeting, supported=None, valid_sources=[]
+            )
         history_desc = await self._repository.list_recent_messages(
             db, conversation.id, CHAT_HISTORY_LIMIT
         )
@@ -269,6 +275,25 @@ class ChatService:
             supported = False
             valid_sources = []
 
+        return await self._save_exchange(
+            db,
+            conversation,
+            body,
+            answer_content,
+            supported=supported,
+            valid_sources=valid_sources,
+        )
+
+    async def _save_exchange(
+        self,
+        db: AsyncSession,
+        conversation: ChatConversation,
+        body: MessageCreateCommand,
+        answer_content: str,
+        *,
+        supported: bool | None,
+        valid_sources: list[UUID],
+    ) -> MessageSubmissionResult:
         now = datetime.now(timezone.utc)
         conversation.updated_at = now
         user_message = ChatMessage(
@@ -291,7 +316,7 @@ class ChatService:
             user_message,
             assistant_message,
             valid_sources,
-            supported=supported,
+            supported=bool(supported),
         )
         await db.commit()
         await self._repository.refresh_conversation(db, conversation)

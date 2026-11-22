@@ -26,6 +26,10 @@ Accepts a non-blank question up to 4,000 characters and returns a complete respo
 
 If the project notes do not support an answer, the assistant message has `supported: false` and an empty `sources` array. The answer clearly states that the project notes did not support an answer. The current implementation responds in the question's language; the product language policy remains open, especially when the question and supporting notes use different languages.
 
+Standalone greetings, brief wellbeing exchanges, thanks, farewells, and questions about the assistant's identity or capabilities receive approved local replies. FIKRAH introduces itself as a personal knowledge assistant whose factual answers use the selected project's notes. These exchanges use `supported: null` and `sources: []`: support is not applicable, rather than missing. The existing nullable response field and database column are unchanged. Flutter should show the unsupported-answer state only for `supported == false`, not for `null`.
+
+This is a narrow whole-message policy, currently recognizing common Arabic and English phrases, including the Egyptian Arabic examples "عامل ايه" and "انت مين". It is not an unrestricted small-talk model or a supported-language allowlist. Unknown messages and messages mixing a greeting with a substantive request use the existing grounded workflow. Matching never relies on a greeting prefix, conversation history, note instructions, or a model's self-declared intent. Social exchanges require the same authenticated conversation ownership and request budget, and are persisted normally, but invoke neither embeddings, Qdrant, nor a text model. They therefore do not consume provider quota.
+
 ### `DELETE /v1/conversations/{conversation_id}`
 
 Deletes the conversation, all of its messages, and citation records. Deleting a project also deletes its conversations and message history. Deleting a cited note removes its citation records from chat history; the saved message text remains.
