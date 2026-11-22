@@ -36,6 +36,20 @@ class Settings(BaseSettings):
         le=10_485_760,
         validation_alias="FIKRAH_TRANSCRIPTION_MAX_BYTES",
     )
+    fikrah_search_timeout_seconds: float = Field(
+        default=100, gt=0, allow_inf_nan=False,
+        validation_alias="FIKRAH_SEARCH_TIMEOUT_SECONDS",
+    )
+    fikrah_chat_timeout_seconds: float = Field(
+        default=110, gt=0, allow_inf_nan=False,
+        validation_alias="FIKRAH_CHAT_TIMEOUT_SECONDS",
+    )
+    fikrah_search_executor_workers: int = Field(
+        default=8, ge=1, validation_alias="FIKRAH_SEARCH_EXECUTOR_WORKERS"
+    )
+    fikrah_llm_executor_workers: int = Field(
+        default=8, ge=1, validation_alias="FIKRAH_LLM_EXECUTOR_WORKERS"
+    )
 
     fikrah_celery_max_retries: str = Field(
         default="3", validation_alias="FIKRAH_CELERY_MAX_RETRIES"
