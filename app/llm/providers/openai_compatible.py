@@ -13,7 +13,11 @@ class OpenAICompatibleStructuredTextGenerator:
     ) -> None:
         self._model = model
         self._provider_name = provider_name
-        self._client = OpenAI(api_key=api_key, base_url=base_url, timeout=90)
+        # Celery owns note retries. Replaying inside the SDK multiplies both
+        # latency and paid calls before the worker can apply its retry budget.
+        self._client = OpenAI(
+            api_key=api_key, base_url=base_url, timeout=90, max_retries=0
+        )
 
     def close(self) -> None:
         self._client.close()

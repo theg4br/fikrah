@@ -30,7 +30,7 @@ DeepSeek and OpenRouter use OpenAI-compatible Chat Completions endpoints with JS
 - Workers use late acknowledgements. Tasks are idempotent by database job ID and note revision; duplicate delivery does not replace a newer revision.
 - Qdrant stores one vector point per note ID with user/project/revision metadata. Raw note text stays in PostgreSQL, not in Qdrant payloads.
 - Celery task functions delegate note analysis and indexing to `NoteProcessingService`. A PostgreSQL persistence adapter checks the note revision and processing generation before saving, and the Qdrant adapter owns vector collection creation, upsert, search, and delete operations.
-- A failed LLM or Qdrant request retries up to three times by default with exponential delay and jitter, then marks the current note revision `failed` while retaining its content. Retry count and delay are configurable; stale dispatch/processing recovery is documented in [`docs/features/celery-recovery-config/overview.md`](../celery-recovery-config/overview.md).
+- A classified transient LLM or Qdrant failure retries up to three times by default with exponential delay and jitter, then marks the current note revision `failed` while retaining its content. Permanent failures are terminal without automatic replay. Retry count and delay are configurable; stale dispatch/processing recovery is documented in [`docs/features/celery-recovery-config/overview.md`](../celery-recovery-config/overview.md).
 
 ## Configuration
 
@@ -66,3 +66,16 @@ Only one Beat scheduler should run for this initial deployment command.
 Each processing invocation claims a unique attempt token, including Celery retries that reuse a task ID. Completion and failure require the active token and processing status. A stale attempt cannot overwrite a successful result or mark it failed. Transient failures release only their own claim for retry; terminal failures change state only if that attempt still owns it.
 
 API deletion, processing claims/completion, failure handling, and dispatch recovery acquire note locks before job locks. Deletion and worker completion also share the project advisory lock, so graph updates and vector writes cannot race deletion. PostgreSQL concurrency tests can be enabled using `FIKRAH_TEST_DATABASE_URL` pointing at a dedicated database whose name ends in `_test`; every case creates and removes its own schema.
+
+## Provider retry ownership
+
+Text generation (including streaming) and embeddings use one SDK attempt per
+call, retaining the existing 90-second network timeouts. OpenAI-compatible
+clients explicitly disable SDK retries; Gemini explicitly sets one attempt.
+The installed Gemini SDK already used one attempt when retry options were
+absent; the explicit setting preserves that behavior across SDK upgrades.
+Celery owns note retries, so a provider does not silently multiply the worker
+retry budget. Chat/search requests do not gain an automatic provider retry.
+Network inactivity timeouts are not whole-operation deadlines.
+
+The note task uses bounded prefork attempts; see [attempt limits and retry ownership](../processing-deadlines/note-attempt-limits-and-retries.md) for failure classification, recovery boundaries, and pool requirements.

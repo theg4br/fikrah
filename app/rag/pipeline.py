@@ -8,6 +8,7 @@ from app.core.telemetry import measure, timed
 from app.llm.lifecycle import run_with_provider
 from app.llm.ports import EmbeddingModel, StructuredTextGenerator
 from app.llm.use_cases import analyze_note
+from app.rag.errors import RetryableProcessingError
 from app.rag.ports import NoteProcessingRepository, NoteVectorStore
 
 
@@ -19,12 +20,14 @@ class NoteProcessingService:
         text_generator_factory: Callable[[], StructuredTextGenerator],
         embedding_model_factory: Callable[[], EmbeddingModel],
         stale_processing_after: timedelta,
+        retryable_error: Callable[[Exception], bool] | None = None,
     ) -> None:
         self._repository = repository
         self._vector_store = vector_store
         self._text_generator_factory = text_generator_factory
         self._embedding_model_factory = embedding_model_factory
         self._stale_processing_after = stale_processing_after
+        self._retryable_error = retryable_error
 
     @timed("note.processing")
     def process(
@@ -62,6 +65,10 @@ class NoteProcessingService:
                 )
 
             self._repository.complete_if_current(snapshot, analysis, persist_vector)
-        except Exception:
-            self._repository.fail_if_current(snapshot, terminal=terminal_on_error)
+        except Exception as error:
+            retryable = self._retryable_error is not None and self._retryable_error(error)
+            terminal = terminal_on_error or not retryable
+            self._repository.fail_if_current(snapshot, terminal=terminal)
+            if not terminal:
+                raise RetryableProcessingError("Transient note processing failure") from error
             raise

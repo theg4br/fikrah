@@ -9,8 +9,12 @@ scaling risks; an idle healthy development stack does not establish load capacit
 1. **Implemented: request/stage timing and bounded diagnostic summaries.** See
    [request and stage timing](../../features/performance-observability/request-and-stage-timing.md).
    This is instrumentation, not a claim that the following bottlenecks are fixed.
-2. Pending: bounded operation deadlines, explicit retry ownership, and executor /
-   concurrency isolation. Preserve public error contracts and cancellation safety.
+2. **Implemented: single-attempt text/embedding SDK calls, classified worker
+   retries, and prefork note attempt soft/hard limits.** See
+   [note limits and retry ownership](../../features/processing-deadlines/note-attempt-limits-and-retries.md).
+   Pending: API operation-wide deadlines, executor / concurrency isolation, and
+   durable lifetime attempt budgets. Preserve public error contracts and
+   cancellation safety; cancelling a thread await does not stop its SDK call.
 3. Pending: isolate dispatcher/email/vector cleanup work from long note processing;
    make partial publication and recovery timely without losing durable intents.
 4. Pending: remove SMTP waiting from authentication responses while preserving

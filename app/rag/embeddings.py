@@ -13,7 +13,10 @@ class GeminiEmbeddingModel:
         self._model = model
         self._dimensions = dimensions
         self._client = genai.Client(
-            api_key=api_key, http_options=types.HttpOptions(timeout=90_000)
+            api_key=api_key,
+            http_options=types.HttpOptions(
+                timeout=90_000, retry_options=types.HttpRetryOptions(attempts=1)
+            ),
         )
 
     def close(self) -> None:

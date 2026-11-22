@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     fikrah_celery_visibility_timeout_seconds: str = Field(
         default="3600", validation_alias="FIKRAH_CELERY_VISIBILITY_TIMEOUT_SECONDS"
     )
+    fikrah_note_soft_time_limit_seconds: str = Field(
+        default="240", validation_alias="FIKRAH_NOTE_SOFT_TIME_LIMIT_SECONDS"
+    )
+    fikrah_note_hard_time_limit_seconds: str = Field(
+        default="270", validation_alias="FIKRAH_NOTE_HARD_TIME_LIMIT_SECONDS"
+    )
     fikrah_dispatch_stale_after_seconds: str = Field(
         default="300", validation_alias="FIKRAH_DISPATCH_STALE_AFTER_SECONDS"
     )
@@ -123,6 +129,8 @@ class WorkerSettings:
     dispatch_interval_seconds: int
     dispatch_batch_size: int
     broker_visibility_timeout_seconds: int
+    note_soft_time_limit_seconds: int
+    note_hard_time_limit_seconds: int
 
 
 def get_settings(environ: Mapping[str, str] | None = None) -> Settings:
@@ -153,7 +161,7 @@ def get_worker_settings(
             raise ValueError(f"{name} must be a positive integer")
         return value
 
-    return WorkerSettings(
+    worker = WorkerSettings(
         max_retries=positive_int(
             "FIKRAH_CELERY_MAX_RETRIES", settings.fikrah_celery_max_retries
         ),
@@ -180,4 +188,26 @@ def get_worker_settings(
             "FIKRAH_CELERY_VISIBILITY_TIMEOUT_SECONDS",
             settings.fikrah_celery_visibility_timeout_seconds,
         ),
+        note_soft_time_limit_seconds=positive_int(
+            "FIKRAH_NOTE_SOFT_TIME_LIMIT_SECONDS",
+            settings.fikrah_note_soft_time_limit_seconds,
+        ),
+        note_hard_time_limit_seconds=positive_int(
+            "FIKRAH_NOTE_HARD_TIME_LIMIT_SECONDS",
+            settings.fikrah_note_hard_time_limit_seconds,
+        ),
     )
+    if worker.note_soft_time_limit_seconds >= worker.note_hard_time_limit_seconds:
+        raise ValueError(
+            "FIKRAH_NOTE_SOFT_TIME_LIMIT_SECONDS must be less than "
+            "FIKRAH_NOTE_HARD_TIME_LIMIT_SECONDS"
+        )
+    if worker.note_hard_time_limit_seconds >= min(
+        worker.stale_processing_after_seconds, worker.broker_visibility_timeout_seconds
+    ):
+        raise ValueError(
+            "FIKRAH_NOTE_HARD_TIME_LIMIT_SECONDS must be less than "
+            "FIKRAH_PROCESSING_STALE_AFTER_SECONDS and "
+            "FIKRAH_CELERY_VISIBILITY_TIMEOUT_SECONDS"
+        )
+    return worker

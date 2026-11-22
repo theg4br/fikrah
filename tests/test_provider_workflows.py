@@ -78,7 +78,7 @@ def test_worker_closes_each_provider_before_continuing(fail_at):
         with pytest.raises(ValueError) as caught:
             service.process(snapshot.job_id, "task")
         assert caught.value is failure
-        repository.fail_if_current.assert_called_once_with(snapshot, terminal=False)
+        repository.fail_if_current.assert_called_once_with(snapshot, terminal=True)
     expected = ["analysis", "close_text"]
     text_factory.assert_called_once()
     if fail_at == "analysis":

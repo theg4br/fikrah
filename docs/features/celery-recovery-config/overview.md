@@ -9,14 +9,18 @@ settings for retry and stale-job recovery behavior.
 ## Behavior
 
 - Local Redis uses AOF with `appendfsync everysec` and the existing named volume.
-- Note processing defaults to three Celery retries with a five-second
-  exponential retry base and jitter.
+- Note processing defaults to three Celery retries for classified transient
+  failures, with a five-second exponential retry base and jitter. Permanent
+  failures are terminal after a claimed attempt. Each note attempt has a
+  240-second soft and 270-second hard limit under the prefork pool; see
+  [attempt limits and retry ownership](../processing-deadlines/note-attempt-limits-and-retries.md).
 - The dispatcher runs every 30 seconds, dispatches at most 100 rows per work
   type, and recovers queued jobs whose dispatch is older than five minutes.
 - Processing jobs that remain active for 15 minutes become eligible for
   recovery. Operators can tune this to their LLM provider latency.
 - The Redis visibility timeout defaults to one hour.
 - All integer settings must be positive; invalid values fail worker startup.
+  Note soft limit < hard limit < processing lease and broker visibility timeout.
 
 ## Configuration
 
@@ -24,6 +28,8 @@ settings for retry and stale-job recovery behavior.
 | --- | ---: | --- |
 | `FIKRAH_CELERY_MAX_RETRIES` | `3` | Celery retries after the initial processing attempt. |
 | `FIKRAH_CELERY_RETRY_BACKOFF_SECONDS` | `5` | Base delay for exponential retry backoff. |
+| `FIKRAH_NOTE_SOFT_TIME_LIMIT_SECONDS` | `240` | Note attempt interruption for cleanup (prefork). |
+| `FIKRAH_NOTE_HARD_TIME_LIMIT_SECONDS` | `270` | Note child process termination if soft interruption does not finish. |
 | `FIKRAH_CELERY_VISIBILITY_TIMEOUT_SECONDS` | `3600` | Redis broker timeout for unacknowledged tasks. |
 | `FIKRAH_DISPATCH_STALE_AFTER_SECONDS` | `300` | Age at which an unpublished queued job is eligible for republishing. |
 | `FIKRAH_PROCESSING_STALE_AFTER_SECONDS` | `900` | Age at which a processing job is eligible for recovery. |

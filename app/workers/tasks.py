@@ -7,7 +7,9 @@ from uuid import UUID
 from app.core.telemetry import correlation, measure
 from app.infrastructure.email.worker import deliver_pending_account_emails
 from app.infrastructure.persistence.worker_outbox import WorkerOutboxRepository
+from app.infrastructure.processing_failures import is_retryable_processing_failure
 from app.infrastructure.worker_container import create_note_processing_service
+from app.rag.errors import RetryableProcessingError
 from app.rag.vector_store import QdrantNoteVectorStore
 from app.workers.celery_app import celery_app, settings
 
@@ -25,23 +27,35 @@ def deliver_account_emails() -> None:
     bind=True,
     name="app.worker.tasks.process_note_job",
     acks_late=True,
-    autoretry_for=(Exception,),
+    autoretry_for=(RetryableProcessingError,),
     retry_backoff=settings.retry_backoff_seconds,
     retry_jitter=True,
     retry_kwargs={"max_retries": settings.max_retries},
+    soft_time_limit=settings.note_soft_time_limit_seconds,
+    time_limit=settings.note_hard_time_limit_seconds,
 )
 def process_note_job(self, job_id: str) -> None:
     parsed_id = UUID(job_id)
     with correlation(parsed_id), measure("worker.note_task"):
-        service, repository = create_note_processing_service(_STALE_PROCESSING_AFTER)
+        repository = None
         try:
+            service, repository = create_note_processing_service(_STALE_PROCESSING_AFTER)
             service.process(
                 parsed_id,
                 self.request.id,
                 terminal_on_error=self.request.retries >= settings.max_retries,
             )
+        except RetryableProcessingError:
+            raise
+        except Exception as error:
+            # Claim/setup failures have no snapshot to release. PostgreSQL's
+            # durable dispatcher still owns recovery if a process is killed.
+            if is_retryable_processing_failure(error):
+                raise RetryableProcessingError("Transient worker dependency failure") from error
+            raise
         finally:
-            repository.close()
+            if repository is not None:
+                repository.close()
 
 
 @celery_app.task(name="app.worker.tasks.delete_note_vector", acks_late=True)
