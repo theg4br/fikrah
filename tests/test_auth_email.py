@@ -74,7 +74,8 @@ async def test_action_email_contains_plain_text_and_html(
     message = sent[0]
     assert message["Subject"] == f"FIKRAH — {subject}"
     assert message.get_content_type() == "multipart/alternative"
-    plain_part, html_part = message.iter_parts()
+    plain_part = message.get_body(preferencelist=("plain",))
+    html_part = message.get_body(preferencelist=("html",))
     html_content = html_part.get_content()
     assert "source=email&amp;token=safe-token" in html_content
     assert html_phrase in html_content
@@ -109,6 +110,70 @@ async def test_welcome_email_contains_plain_text_and_html(
     message = sent[0]
     assert message["Subject"] == "Welcome to FIKRAH"
     assert message["To"] == "person@example.test"
-    plain_part, html_part = message.iter_parts()
+    plain_part = message.get_body(preferencelist=("plain",))
+    html_part = message.get_body(preferencelist=("html",))
     assert "Your personal knowledge space is ready" in plain_part.get_content()
     assert "Welcome to FIKRAH!" in html_part.get_content()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("purpose", ["verify_email", "reset_password", "welcome"])
+async def test_account_email_embeds_original_logo_with_matching_content_id(
+    monkeypatch, purpose
+):
+    from email import policy
+    from email.parser import BytesParser
+
+    from app.infrastructure.email.smtp import (
+        EMAIL_LOGO_CID,
+        EMAIL_LOGO_PATH,
+        send_welcome_email,
+    )
+
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.test")
+    monkeypatch.setenv("SMTP_FROM", "FIKRAH <noreply@example.test>")
+    monkeypatch.setenv("EMAIL_ACTION_BASE_URL", "https://app.example.test/action")
+    sent = []
+
+    async def capture_send(message, **_kwargs):
+        sent.append(BytesParser(policy=policy.default).parsebytes(message.as_bytes()))
+
+    monkeypatch.setattr("app.infrastructure.email.smtp.aiosmtplib.send", capture_send)
+    if purpose == "welcome":
+        await send_welcome_email("person@example.test")
+    else:
+        await send_action_email("person@example.test", "safe-token", purpose)
+
+    message = sent[0]
+    html = message.get_body(preferencelist=("html",)).get_content()
+    assert f'src="cid:{EMAIL_LOGO_CID}"' in html
+    assert 'alt="FIKRAH"' in html
+    assert "data:image" not in html
+    assert message.get_body(preferencelist=("plain",)) is not None
+    assert message.get_content_type() == "multipart/alternative"
+    assert list(message.iter_parts())[1].get_content_type() == "multipart/related"
+    images = [part for part in message.walk() if part.get_content_type() == "image/png"]
+    assert len(images) == 1
+    logo = images[0]
+    assert logo["Content-ID"] == f"<{EMAIL_LOGO_CID}>"
+    assert logo.get_content_disposition() == "inline"
+    assert logo.get_payload(decode=True) == EMAIL_LOGO_PATH.read_bytes()
+
+
+@pytest.mark.asyncio
+async def test_missing_logo_fails_delivery_instead_of_sending_broken_branding(
+    monkeypatch, tmp_path
+):
+    from unittest.mock import AsyncMock
+
+    from app.infrastructure.email.smtp import send_welcome_email
+    from app.services.auth_ports import EmailDeliveryError
+
+    send = AsyncMock()
+    monkeypatch.setattr("app.infrastructure.email.smtp.aiosmtplib.send", send)
+    monkeypatch.setattr(
+        "app.infrastructure.email.smtp.EMAIL_LOGO_PATH", tmp_path / "missing-logo.png"
+    )
+    with pytest.raises(EmailDeliveryError):
+        await send_welcome_email("person@example.test")
+    send.assert_not_called()
