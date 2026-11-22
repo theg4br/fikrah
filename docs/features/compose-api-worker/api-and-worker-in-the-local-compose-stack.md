@@ -26,10 +26,21 @@ existing `/health` liveness endpoint as its container health check.
 
 ## Local security
 
-The Docker build excludes `.env`, Git data, virtual environments, and Python
-caches. Runtime application services load credentials from the ignored local
+The Docker context uses an allowlist: `requirements.txt`, `alembic.ini`, `app/`,
+`migrations/`, and `static/`, plus the Docker build configuration. The Dockerfile
+copies those runtime inputs explicitly. Local web tools, demo account files,
+`AGENTS.md`, tests, documentation, Git data, and virtual environments stay outside
+the image. Nested environment files, agent instructions, local tools, and Python
+caches are excluded too. Runtime application services load credentials from the ignored local
 `.env`; migrations receive only the PostgreSQL connection URL. Images run as a
 non-root application user.
+
+To check the actual image without starting the application or its dependencies:
+
+```bash
+docker build -t fikrah:image-boundary .
+FIKRAH_TEST_DOCKER_IMAGE=fikrah:image-boundary .venv/bin/python -m pytest tests/test_docker_image_boundary.py
+```
 
 Celery beat keeps its local schedule file under `/tmp`; durable job state remains
 in PostgreSQL, so the schedule file is not application data.
