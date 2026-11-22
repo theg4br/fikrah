@@ -145,7 +145,7 @@ async def test_independent_pools_isolate_capacity_and_default_executor():
 @pytest.mark.asyncio
 async def test_nested_deadlines_do_not_extend_parent_and_restore_context():
     assert remaining_time(90) == 90
-    async with execution_budget(0.05):
+    async with execution_budget(5):
         before = remaining_time(90)
         async with execution_budget(10):
             assert remaining_time(90) <= before
@@ -206,3 +206,45 @@ def test_deadlines_must_be_finite_positive_numbers(name, value):
 def test_executor_capacity_must_be_a_positive_integer(name, value):
     with pytest.raises(ValidationError):
         get_settings({name: value})
+
+
+@pytest.mark.asyncio
+async def test_swallowing_async_cancellation_does_not_accept_a_late_result():
+    with pytest.raises(TimeoutError):
+        async with execution_budget(0.01):
+            try:
+                await asyncio.sleep(5)
+            except asyncio.CancelledError:
+                pass
+
+
+@pytest.mark.asyncio
+async def test_deadline_unblocks_a_provider_waiting_on_a_slow_stream_consumer():
+    from app.services.chat_stream import stream_exchange
+
+    pool = BoundedExecutor(1, "stream-test")
+    closed = Event()
+
+    def generate(emit):
+        try:
+            for _ in range(1000):
+                emit("token")
+        finally:
+            closed.set()
+
+    async def operation(emit):
+        async with execution_budget(0.05):
+            await pool.run(generate, emit)
+
+    stream = stream_exchange(operation)
+    try:
+        await asyncio.wait_for(anext(stream), 1)
+        # Stop pulling events. Its bounded queue fills and blocks the producer.
+        # Deadline checks must release the thread even before a disconnect.
+        await wait_event(closed)
+        with pytest.raises(TimeoutError):
+            async for _ in stream:
+                pass
+    finally:
+        await stream.aclose()
+        pool.close()

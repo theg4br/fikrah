@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from math import ceil
 from uuid import UUID
 
 from qdrant_client import QdrantClient, models
 
 from app.core.config import get_settings
+from app.core.execution import check_execution_budget, remaining_time
 from app.core.telemetry import timed
 from app.rag.errors import SearchUnavailableError
 
@@ -24,7 +26,13 @@ class QdrantNoteVectorStore:
     def _client(self) -> QdrantClient:
         if not self._url:
             raise SearchUnavailableError("QDRANT_URL is required for vector storage")
-        return QdrantClient(url=self._url, api_key=self._api_key, timeout=30)
+        return QdrantClient(
+            url=self._url, api_key=self._api_key,
+            timeout=max(1, ceil(remaining_time(30))),
+            # This SDK probe spawns its own background network thread per
+            # client, escaping bounded admission and caller cancellation.
+            check_compatibility=False,
+        )
 
     def _ensure_collection(self, client: QdrantClient) -> None:
         collections = {item.name for item in client.get_collections().collections}
@@ -104,6 +112,7 @@ class QdrantNoteVectorStore:
             collections = {item.name for item in client.get_collections().collections}
             if self._collection not in collections:
                 return []
+            check_execution_budget()
             response = client.query_points(
                 collection_name=self._collection,
                 query=query_vector,
@@ -121,7 +130,9 @@ class QdrantNoteVectorStore:
                 limit=limit,
                 with_payload=["revision"],
                 with_vectors=False,
+                timeout=max(1, ceil(remaining_time(30))),
             )
+            check_execution_budget()
             matches: list[tuple[UUID, int, float]] = []
             for point in response.points:
                 revision = (point.payload or {}).get("revision")

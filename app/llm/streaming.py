@@ -5,6 +5,7 @@ from contextlib import closing
 
 from pydantic_core import from_json
 
+from app.core.execution import iter_with_budget
 from app.llm.contracts import ChatAnswer
 
 MAX_CHAT_OUTPUT_CHARACTERS = 64_000
@@ -24,7 +25,7 @@ def consume_chat_stream(
     emitted = ""
     header: tuple[str, ...] | None = None
     with closing(chunks):
-        for chunk in chunks:
+        for chunk in iter_with_budget(chunks):
             output += chunk
             if len(output) > MAX_CHAT_OUTPUT_CHARACTERS:
                 raise ValueError("Chat output exceeded its size limit")

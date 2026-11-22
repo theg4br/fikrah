@@ -1,7 +1,7 @@
 """Execution contracts and cooperative deadlines, independent of providers."""
 
 import asyncio
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -56,6 +56,18 @@ def remaining_time(maximum: float) -> float:
     return maximum if budget is None else min(maximum, budget.remaining())
 
 
+def iter_with_budget(chunks: Iterator[T]) -> Iterator[T]:
+    """Check before a blocking read as well as after a slow read returns."""
+    while True:
+        check_execution_budget()
+        try:
+            chunk = next(chunks)
+        except StopIteration:
+            return
+        check_execution_budget()
+        yield chunk
+
+
 @asynccontextmanager
 async def execution_budget(seconds: float) -> AsyncIterator[None]:
     parent = _current_budget.get()
@@ -67,6 +79,7 @@ async def execution_budget(seconds: float) -> AsyncIterator[None]:
     try:
         async with asyncio.timeout(budget.remaining()):
             yield
+            check_execution_budget()
     finally:
         budget.cancelled.set()
         _current_budget.reset(token)

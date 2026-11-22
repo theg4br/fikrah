@@ -424,7 +424,7 @@ async def test_chat_rejects_a_reply_when_the_conversation_changes_during_generat
     monkeypatch.setattr(
         service_container.search_service, "_vector_search", lambda *_args: []
     )
-    monkeypatch.setattr(chat_service_module.asyncio, "to_thread", run_in_thread)
+    monkeypatch.setattr(service_container.chat_service, "_run_blocking", run_in_thread)
     response = await client.post(
         f"/v1/conversations/{conversation_id}/messages",
         headers={"Authorization": f"Bearer {token}"},

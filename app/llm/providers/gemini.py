@@ -6,6 +6,7 @@ from contextlib import closing
 from google import genai
 from google.genai import types
 
+from app.core.execution import check_execution_budget, iter_with_budget, remaining_time
 from app.llm.ports import StructuredResult
 
 
@@ -15,7 +16,8 @@ class GeminiTextGenerator:
         self._client = genai.Client(
             api_key=api_key,
             http_options=types.HttpOptions(
-                timeout=90_000, retry_options=types.HttpRetryOptions(attempts=1)
+                timeout=max(1, int(remaining_time(90) * 1000)),
+                retry_options=types.HttpRetryOptions(attempts=1),
             ),
         )
 
@@ -29,6 +31,7 @@ class GeminiTextGenerator:
         user_content: str,
         response_model: type[StructuredResult],
     ) -> StructuredResult:
+        check_execution_budget()
         response = self._client.models.generate_content(
             model=self._model,
             contents=user_content,
@@ -39,6 +42,7 @@ class GeminiTextGenerator:
                 max_output_tokens=3000,
             ),
         )
+        check_execution_budget()
         if not response.text:
             raise ValueError("Gemini returned an empty structured response")
         return response_model.model_validate_json(response.text)
@@ -50,6 +54,7 @@ class GeminiTextGenerator:
         user_content: str,
         response_model: type[StructuredResult],
     ) -> Iterator[str]:
+        check_execution_budget()
         with closing(
             self._client.models.generate_content_stream(
                 model=self._model,
@@ -62,9 +67,10 @@ class GeminiTextGenerator:
                 ),
             )
         ) as stream:
-            for chunk in stream:
+            for chunk in iter_with_budget(iter(stream)):
                 for candidate in chunk.candidates or []:
                     if candidate.finish_reason not in (None, types.FinishReason.STOP):
                         raise ValueError("Gemini did not finish the streamed response")
                 if chunk.text:
                     yield chunk.text
+            check_execution_budget()

@@ -2,6 +2,7 @@
 
 import asyncio
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
@@ -16,6 +17,8 @@ from app.contracts.chat import (
     MessageSubmissionResult,
     SourceReference,
 )
+from app.core.config import get_settings
+from app.core.execution import BlockingRunner, execution_budget
 from app.core.telemetry import timed
 from app.llm.contracts import ChatHistoryMessage, ChatNoteContext
 from app.llm.lifecycle import run_with_provider
@@ -34,16 +37,27 @@ CHAT_HISTORY_LIMIT = 12
 CHAT_OVERVIEW_BATCH_SIZE = 3
 
 
+@dataclass(frozen=True)
+class _PreparedReply:
+    conversation: ChatConversation
+    content: str
+    supported: bool | None
+    sources: list[UUID]
+
+
 class ChatService:
     def __init__(
         self,
         search_service: SemanticSearchService,
         text_generator_factory: Callable[[], StructuredTextGenerator],
         repository: ChatRepository | None = None,
+        *,
+        run_blocking: BlockingRunner = asyncio.to_thread,
     ) -> None:
         self._search_service = search_service
         self._text_generator_factory = text_generator_factory
         self._repository = repository or ChatRepository()
+        self._run_blocking = run_blocking
 
     async def _owned_project(
         self, db: AsyncSession, user_id: UUID, project_id: UUID, *, lock: bool = False
@@ -140,14 +154,39 @@ class ChatService:
         *,
         on_delta: Callable[[str], None] | None = None,
     ) -> MessageSubmissionResult:
+        try:
+            async with execution_budget(get_settings().fikrah_chat_timeout_seconds):
+                reply = await self._prepare_reply(
+                    db, user_id, conversation_id, body, on_delta=on_delta
+                )
+        except TimeoutError as error:
+            await db.rollback()
+            raise ChatServiceError(
+                ChatFailure.GENERATION_UNAVAILABLE,
+                "LLM chat is temporarily unavailable",
+            ) from error
+        # Do not cancel the final commit on a generation deadline. A client must
+        # never receive a deadline error while this code continues to save.
+        return await self._save_exchange(
+            db, reply.conversation, body, reply.content,
+            supported=reply.supported, valid_sources=reply.sources,
+        )
+
+    async def _prepare_reply(
+        self,
+        db: AsyncSession,
+        user_id: UUID,
+        conversation_id: UUID,
+        body: MessageCreateCommand,
+        *,
+        on_delta: Callable[[str], None] | None,
+    ) -> _PreparedReply:
         conversation = await self._owned_conversation(
             db, user_id, conversation_id, lock=True
         )
         greeting = social_reply(body.content)
         if greeting is not None:
-            return await self._save_exchange(
-                db, conversation, body, greeting, supported=None, valid_sources=[]
-            )
+            return _PreparedReply(conversation, greeting, None, [])
         history_desc = await self._repository.list_recent_messages(
             db, conversation.id, CHAT_HISTORY_LIMIT
         )
@@ -215,7 +254,7 @@ class ChatService:
         ]
         matching_revisions = {match.note_id: match.revision for match in matches}
         try:
-            answer = await asyncio.to_thread(
+            answer = await self._run_blocking(
                 run_with_provider,
                 self._text_generator_factory,
                 lambda generator: answer_project_question(
@@ -277,7 +316,7 @@ class ChatService:
             # available, instead of returning a fixed English fallback.
             await db.rollback()
             try:
-                refusal = await asyncio.to_thread(
+                refusal = await self._run_blocking(
                     run_with_provider,
                     self._text_generator_factory,
                     lambda generator: answer_project_question(
@@ -312,14 +351,7 @@ class ChatService:
             supported = False
             valid_sources = []
 
-        return await self._save_exchange(
-            db,
-            conversation,
-            body,
-            answer_content,
-            supported=supported,
-            valid_sources=valid_sources,
-        )
+        return _PreparedReply(conversation, answer_content, supported, valid_sources)
 
     async def authorize_conversation(
         self, db: AsyncSession, user_id: UUID, conversation_id: UUID

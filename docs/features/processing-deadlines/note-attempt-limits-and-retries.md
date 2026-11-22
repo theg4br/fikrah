@@ -76,10 +76,11 @@ recovery when immediate retries are unavailable or exhausted.
 The existing Qdrant write remains inside the consistency lock. A timeout can
 leave PostgreSQL rolled back while Qdrant has applied a write; this existing
 cross-store reconciliation issue still requires the separately agreed design.
-API operation-wide deadlines, cancellation-aware async clients / bounded executor
-admission, queue isolation, SQL statement/lock bounds, durable lifetime attempt
-budgets, and quicker outbox recovery remain separate work. Cancelling
-`asyncio.to_thread` still does not stop an already-running SDK request.
+Search/chat now have [preparation budgets and bounded executor admission](../api-execution-budgets/search-and-chat-execution.md).
+Cancellation-aware async clients, complete-response bounds, queue isolation, SQL
+statement/lock bounds, durable lifetime attempt budgets, and quicker outbox
+recovery remain separate work. Cancelling a thread await still does not stop an
+already-running SDK request; its capacity remains occupied until cleanup finishes.
 
 ## Verification
 
