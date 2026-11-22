@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.body_limits import RequestBodyLimitMiddleware
+from app.api.timing import RequestTimingMiddleware
 from app.api.v1.auth import router as auth_router
 from app.api.v1.chat import router as chat_router
 from app.api.v1.connections import router as connections_router
@@ -14,6 +15,7 @@ from app.api.v1.transcriptions import router as transcription_router
 from app.core.config import get_settings
 from app.core.security import validate_jwt_secret
 from app.db.session import close_database, initialize_database
+from app.infrastructure.observability import start_timing_logs, stop_timing_logs
 
 
 @asynccontextmanager
@@ -24,15 +26,21 @@ async def lifespan(app: FastAPI):
     if database_url:
         initialize_database(database_url)
 
-    yield
-
-    await close_database()
+    start_timing_logs()
+    try:
+        yield
+    finally:
+        try:
+            await close_database()
+        finally:
+            stop_timing_logs()
 
 
 app = FastAPI(title="FIKRAH API", lifespan=lifespan)
 app.add_middleware(
     RequestBodyLimitMiddleware, audio_upload_path=transcription_router.prefix
 )
+app.add_middleware(RequestTimingMiddleware)
 app.include_router(auth_router)
 app.include_router(projects_router)
 app.include_router(notes_router)

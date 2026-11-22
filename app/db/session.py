@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.core.config import DATABASE_URL_ENV, get_settings
+from app.db.timing import instrument_database
 
 _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
@@ -32,6 +33,7 @@ def initialize_database(
         return _session_factory
 
     _engine = create_async_engine(resolved_url, pool_pre_ping=True)
+    instrument_database(_engine.sync_engine)
     _session_factory = async_sessionmaker(_engine, expire_on_commit=False)
     return _session_factory
 
