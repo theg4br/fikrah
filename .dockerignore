@@ -1,7 +1,22 @@
-.env
-.git
-.venv
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.ruff_cache/
+# Only runtime inputs belong in the build context. Git ignore rules do not apply.
+**
+!Dockerfile
+!.dockerignore
+!requirements.txt
+!alembic.ini
+!app/
+!app/**
+!migrations/
+!migrations/**
+!static/
+!static/**
+
+# Exclude local artifacts even when nested inside an allowed directory.
+**/.env
+**/.env.*
+**/AGENTS.md
+**/.local/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.ruff_cache/

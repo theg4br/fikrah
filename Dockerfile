@@ -10,7 +10,10 @@ RUN groupadd --system app && useradd --system --gid app --create-home app
 COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY --chown=app:app . .
+COPY --chown=app:app app/ ./app/
+COPY --chown=app:app migrations/ ./migrations/
+COPY --chown=app:app static/ ./static/
+COPY --chown=app:app alembic.ini ./alembic.ini
 
 USER app
 
