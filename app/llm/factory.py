@@ -68,7 +68,7 @@ class LLMProviderFactory:
         api_key = settings.gemini_api_key
         if not api_key:
             raise RuntimeError("GEMINI_API_KEY is required for note embeddings")
-        dimensions = int(settings.gemini_embedding_dimensions)
+        dimensions = settings.gemini_embedding_dimensions
         if dimensions not in {768, 1536, 3072}:
             raise RuntimeError("GEMINI_EMBEDDING_DIMENSIONS must be 768, 1536, or 3072")
         return GeminiEmbeddingModel(

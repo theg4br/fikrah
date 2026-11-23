@@ -89,3 +89,13 @@ PostgreSQL also enforces project ownership consistency: notes and conversations 
 - Preserve public routes, payloads, headers, and status codes during structural changes.
 - Keep Celery task registration names stable even when Python modules move.
 - Put new feature documentation under `docs/features/<feature>/` and phase documentation under `docs/phases/<phase>/`, using a descriptive kebab-case document title.
+
+
+## Configuration lifecycle
+
+The composition roots read immutable typed settings snapshots. Repeated reads
+reuse the same snapshot while configured environment values are unchanged; explicit
+mapping overrides remain available for isolated tests. Environment aliases/defaults
+and the existing local `.env` loader are preserved. Worker deadline consistency
+checks still run through `get_worker_settings()`. The complete declared-default
+inventory is in [local environment configuration](../features/local-environment-configuration/overview.md).

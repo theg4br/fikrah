@@ -21,7 +21,7 @@ class QdrantNoteVectorStore:
         self._url = settings.qdrant_url
         self._api_key = settings.qdrant_api_key
         self._collection = settings.qdrant_notes_collection
-        self._dimensions = int(settings.gemini_embedding_dimensions)
+        self._dimensions = settings.gemini_embedding_dimensions
 
     def _client(self) -> QdrantClient:
         if not self._url:

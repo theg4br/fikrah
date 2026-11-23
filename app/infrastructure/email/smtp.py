@@ -59,10 +59,10 @@ def _smtp_settings() -> dict[str, object]:
     if not host or not sender:
         raise RuntimeError("SMTP_HOST and SMTP_FROM must be configured")
 
-    port = int(settings.smtp_port)
+    port = settings.smtp_port
     username = settings.smtp_username or None
     password = settings.smtp_password or None
-    use_tls = settings.smtp_use_tls.lower() == "true"
+    use_tls = settings.smtp_use_tls
     return {
         "hostname": host,
         "port": port,
@@ -70,7 +70,7 @@ def _smtp_settings() -> dict[str, object]:
         "username": username,
         "password": password,
         "use_tls": use_tls,
-        "start_tls": not use_tls and settings.smtp_start_tls.lower() == "true",
+        "start_tls": not use_tls and settings.smtp_start_tls,
     }
 
 
