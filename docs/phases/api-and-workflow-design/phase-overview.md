@@ -1,6 +1,6 @@
 # Phase: API and Workflow Design
 
-**Status: Complete for the initial mobile API.** Implemented contracts are recorded in [`docs/features/api-contract-design/api-surface-proposal.md`](../../features/api-contract-design/api-surface-proposal.md); unresolved product decisions remain explicitly listed in the product scope.
+**Status: Complete for the initial mobile API; detailed mobile handover published.** The [mobile integration handbook](../../mobile/README.md) covers user journeys, every endpoint, DTOs/errors, direct Flutter integration, OpenAPI and acceptance scenarios. [API contract design](../../features/api-contract-design/api-surface-proposal.md) records scope; unresolved product decisions remain explicit.
 
 ## Goal
 
