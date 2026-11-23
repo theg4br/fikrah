@@ -7,3 +7,7 @@ class EmailDeliveryError(Exception):
 
 class GoogleIdentityTokenError(Exception):
     """An identity provider rejected a supplied Google ID token."""
+
+
+class GoogleVerificationUnavailable(Exception):
+    """Google verification could not complete because its transport is unavailable."""

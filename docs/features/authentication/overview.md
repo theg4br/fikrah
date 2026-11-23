@@ -1,5 +1,42 @@
 # Authentication and Accounts
 
+## Bounded Google verification
+
+The JSON Google ID-token exchange and successful token response are unchanged.
+Before verification, Redis enforces 20 Google attempts per ASGI client IP per
+60-second window across API processes. The API does not parse forwarding headers;
+configure trusted reverse proxies in the ASGI server so the peer address is
+correct. Users sharing a public IP share this budget.
+
+Verification has a dedicated executor (eight admitted/running calls per process,
+no admission queue) and a ten-second verification budget. A timed-out or cancelled
+HTTP waiter does not release a running thread's capacity. Network waits and the
+certificate cache lock use the remaining budget; the executor closes at API
+shutdown. These limits do not bound subsequent account transactions or email
+delivery. Configure them with `FIKRAH_GOOGLE_LIMIT_PER_MINUTE` (20),
+`FIKRAH_GOOGLE_EXECUTOR_WORKERS` (8), and `FIKRAH_GOOGLE_TIMEOUT_SECONDS` (10).
+
+- Invalid signature, expiry, audience, issuer, or account claims: HTTP `401`.
+- IP attempt limit: HTTP `429` with `Retry-After` for the Redis window.
+- Executor saturation: HTTP `429` with `Retry-After: 1`.
+- Redis outage, certificate transport failure, or verification timeout: HTTP `503`.
+- Account linking conflicts retain HTTP `409`; authoritative Google email and
+  account isolation rules are unchanged.
+
+Only the fixed HTTPS Google public-certificate endpoint is cached. Every token
+still undergoes signature and claim validation. No ID tokens, user profiles,
+authentication results, cookies, or authenticated HTTP responses enter the cache.
+CacheControl handles freshness and revalidation; an additional conservative
+freshness adjustment subtracts upstream `Age` from `max-age` because the pinned
+library does not account for `Age`. Responses with an unusable age/freshness
+combination are not cached. Expired keys cannot be used as an outage fallback.
+Concurrent misses share one certificate fetch, with a separate session closed
+after each cache access; redirects are refused.
+
+References: [Google ID-token cache guidance](https://google-auth.readthedocs.io/en/latest/reference/google.oauth2.id_token.html),
+[CacheControl usage](https://cachecontrol.readthedocs.io/en/latest/usage.html), and
+[cache security model](https://cachecontrol.readthedocs.io/en/master/security.html).
+
 ## Status and Scope
 
 This feature implements the first mobile-facing account API for the FastAPI backend. It covers email/password registration, email verification, Google sign-in, password recovery, access and refresh tokens, current-user lookup, and creation of each user's protected `General` project. It does not implement mobile UI, note/project CRUD, Google account disconnect, or account deletion.

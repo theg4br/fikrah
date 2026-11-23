@@ -1,6 +1,5 @@
 """Authentication application workflows and account lifecycle use cases."""
 
-import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta, timezone
@@ -19,7 +18,9 @@ from app.contracts.auth import (
     PasswordReset,
     RefreshToken,
 )
+from app.core.config import get_settings
 from app.core.datetimes import ensure_timezone
+from app.core.execution import BlockingRunner, ExecutionBusy, execution_budget
 from app.core.security import (
     DUMMY_PASSWORD_HASH,
     REFRESH_TOKEN_TTL,
@@ -36,7 +37,10 @@ from app.models import EmailActionToken, EmailDelivery, Project, RefreshSession,
 from app.repositories.auth import AuthRepository
 from app.repositories.email import EmailOutboxRepository
 from app.services.auth_errors import AuthFailure, AuthServiceError
-from app.services.auth_ports import GoogleIdentityTokenError
+from app.services.auth_ports import (
+    GoogleIdentityTokenError,
+    GoogleVerificationUnavailable,
+)
 from app.services.email_delivery_service import EmailDeliveryService
 from app.services.request_budgets import RequestBudgetExceeded, RequestBudgetUnavailable
 
@@ -135,6 +139,7 @@ class AuthService:
         google_client_id: GoogleClientId,
         protect_email_token: Callable[[str], str],
         reveal_email_token: Callable[[str], str],
+        run_google_verification: BlockingRunner,
         repository: AuthRepository | None = None,
         login_budget: Callable[[str], Awaitable[None]] | None = None,
     ) -> None:
@@ -147,6 +152,7 @@ class AuthService:
         self._email_repository = EmailOutboxRepository()
         self._repository = repository or AuthRepository()
         self._login_budget = login_budget
+        self._run_google_verification = run_google_verification
 
     async def _queue_email(
         self, db: AsyncSession, user: User, purpose: str, token: str | None = None
@@ -322,9 +328,18 @@ class AuthService:
                 AuthFailure.GOOGLE_UNAVAILABLE, "Google sign-in is not configured"
             )
         try:
-            claims = await asyncio.to_thread(
-                self.verify_google_id_token, body.id_token, audience
-            )
+            async with execution_budget(get_settings().fikrah_google_timeout_seconds):
+                claims = await self._run_google_verification(
+                    self.verify_google_id_token, body.id_token, audience
+                )
+        except ExecutionBusy as error:
+            raise AuthServiceError(
+                AuthFailure.GOOGLE_BUSY, "Google verification is busy", retry_after=1
+            ) from error
+        except (TimeoutError, GoogleVerificationUnavailable) as error:
+            raise AuthServiceError(
+                AuthFailure.GOOGLE_UNAVAILABLE, "Google verification is temporarily unavailable"
+            ) from error
         except GoogleIdentityTokenError:
             raise AuthServiceError(
                 AuthFailure.INVALID_GOOGLE_IDENTITY, "Invalid Google ID token"

@@ -22,15 +22,18 @@ request_budgets = RequestBudgets(
     RedisBudgetStore(lambda: get_settings().redis_url),
     login_limit=lambda: get_settings().fikrah_login_limit_per_minute,
     llm_limit=lambda: get_settings().fikrah_llm_limit_per_minute,
+    google_limit=lambda: get_settings().fikrah_google_limit_per_minute,
 )
 
 search_executor = BoundedExecutor(get_settings().fikrah_search_executor_workers, "search")
 text_executor = BoundedExecutor(get_settings().fikrah_llm_executor_workers, "text")
+google_executor = BoundedExecutor(get_settings().fikrah_google_executor_workers, "google")
 
 
 def close_api_executors() -> None:
     search_executor.close()
     text_executor.close()
+    google_executor.close()
 
 auth_service = AuthService(
     send_action_email=send_action_email,
@@ -40,6 +43,7 @@ auth_service = AuthService(
     verify_google_id_token=verify_google_id_token,
     google_client_id=lambda: get_settings().google_client_id,
     login_budget=request_budgets.login,
+    run_google_verification=google_executor.run,
 )
 search_service = SemanticSearchService(
     embedding_model_factory=LLMProviderFactory.create_embedding_model,

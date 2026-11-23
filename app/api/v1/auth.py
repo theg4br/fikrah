@@ -3,7 +3,7 @@
 from collections.abc import Awaitable
 from typing import TypeVar
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.api.deps import AuthenticatedUser, AuthServiceDependency, Db
 from app.contracts.auth import (
@@ -28,6 +28,7 @@ from app.schemas.auth import (
     UserView,
 )
 from app.services.auth_errors import AuthFailure, AuthServiceError
+from app.services.request_budgets import RequestBudgetExceeded, RequestBudgetUnavailable
 
 router = APIRouter(prefix="/v1/auth", tags=["authentication"])
 Result = TypeVar("Result")
@@ -40,6 +41,7 @@ AUTH_FAILURE_STATUSES = {
     AuthFailure.INVALID_GOOGLE_IDENTITY: 401,
     AuthFailure.GOOGLE_IDENTITY_CONFLICT: 409,
     AuthFailure.GOOGLE_UNAVAILABLE: 503,
+    AuthFailure.GOOGLE_BUSY: 429,
     AuthFailure.INVALID_REFRESH_TOKEN: 401,
     AuthFailure.LOGIN_BUDGET_EXCEEDED: 429,
     AuthFailure.LOGIN_BUDGET_UNAVAILABLE: 503,
@@ -116,7 +118,29 @@ async def login(
     )
 
 
-@router.post("/google", response_model=AuthTokens)
+async def enforce_google_budget(request: Request) -> None:
+    from app.infrastructure.container import request_budgets
+
+    # ASGI client is authoritative. Do not interpret user-controlled forwarding
+    # headers here; trusted proxy configuration belongs to the deployment server.
+    client_ip = request.client.host if request.client is not None else "unknown"
+    try:
+        await request_budgets.google(client_ip)
+    except RequestBudgetExceeded as error:
+        raise HTTPException(
+            status_code=429, detail="Too many Google login attempts",
+            headers={"Retry-After": str(error.retry_after)},
+        ) from error
+    except RequestBudgetUnavailable as error:
+        raise HTTPException(status_code=503, detail="Authentication is temporarily unavailable") from error
+
+
+@router.post(
+    "/google", response_model=AuthTokens, dependencies=[Depends(enforce_google_budget)],
+    responses={401: {"description": "Invalid Google identity"},
+               429: {"description": "Attempt limit or verification capacity exceeded"},
+               503: {"description": "Verification dependency is unavailable"}},
+)
 async def google_login(
     body: GoogleLoginRequest, db: Db, service: AuthServiceDependency
 ) -> AuthTokens:

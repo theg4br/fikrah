@@ -99,6 +99,7 @@ async def test_first_google_requests_create_one_account(postgres_case, monkeypat
         pass
 
     service = AuthService(
+        run_google_verification=asyncio.to_thread,
         protect_email_token=lambda token: token,
         reveal_email_token=lambda token: token,
         send_action_email=discard,
@@ -180,6 +181,7 @@ async def test_password_reset_serializes_with_refresh(postgres_case, monkeypatch
         pass
 
     service = AuthService(
+        run_google_verification=asyncio.to_thread,
         protect_email_token=lambda token: token,
         reveal_email_token=lambda token: token,
         send_action_email=discard,

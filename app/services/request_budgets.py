@@ -24,10 +24,12 @@ class RequestBudgets:
         store: BudgetStore,
         login_limit: Callable[[], int],
         llm_limit: Callable[[], int],
+        google_limit: Callable[[], int] = lambda: 20,
     ) -> None:
         self._store = store
         self._login_limit = login_limit
         self._llm_limit = llm_limit
+        self._google_limit = google_limit
 
     async def login(self, email: str) -> None:
         await self._store.consume(
@@ -36,3 +38,6 @@ class RequestBudgets:
 
     async def llm(self, user_id: UUID) -> None:
         await self._store.consume(f"llm:{user_id}", self._llm_limit(), 60)
+
+    async def google(self, client_ip: str) -> None:
+        await self._store.consume(f"google:{client_ip}", self._google_limit(), 60)
