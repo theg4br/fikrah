@@ -43,6 +43,16 @@ class Settings(BaseSettings):
     fikrah_login_limit_per_minute: int = Field(
         default=5, ge=1, validation_alias="FIKRAH_LOGIN_LIMIT_PER_MINUTE"
     )
+    fikrah_google_limit_per_minute: int = Field(
+        default=20, ge=1, validation_alias="FIKRAH_GOOGLE_LIMIT_PER_MINUTE"
+    )
+    fikrah_google_timeout_seconds: float = Field(
+        default=10, gt=0, allow_inf_nan=False,
+        validation_alias="FIKRAH_GOOGLE_TIMEOUT_SECONDS",
+    )
+    fikrah_google_executor_workers: int = Field(
+        default=8, ge=1, validation_alias="FIKRAH_GOOGLE_EXECUTOR_WORKERS"
+    )
     fikrah_llm_limit_per_minute: int = Field(
         default=10, ge=1, validation_alias="FIKRAH_LLM_LIMIT_PER_MINUTE"
     )

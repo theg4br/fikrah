@@ -1,5 +1,6 @@
 """Durable account-email recovery and encrypted token payload checks."""
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -41,6 +42,7 @@ async def outbox_case(tmp_path, monkeypatch):
         state["welcomes"].append(email)
 
     auth = AuthService(
+        run_google_verification=asyncio.to_thread,
         send_action_email=action,
         send_welcome_email=welcome,
         protect_email_token=protect_email_token,

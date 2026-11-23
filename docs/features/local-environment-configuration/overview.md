@@ -52,6 +52,9 @@ previous defaults for comparison.
 | `DATABASE_URL` | `unset` | `NoneType` |
 | `REDIS_URL` | `redis://localhost:6379/0` | `str` |
 | `FIKRAH_LOGIN_LIMIT_PER_MINUTE` | `5` | `int` |
+| `FIKRAH_GOOGLE_LIMIT_PER_MINUTE` | `20` | `int` |
+| `FIKRAH_GOOGLE_TIMEOUT_SECONDS` | `10` | `float` |
+| `FIKRAH_GOOGLE_EXECUTOR_WORKERS` | `8` | `int` |
 | `FIKRAH_LLM_LIMIT_PER_MINUTE` | `10` | `int` |
 | `FIKRAH_NOTE_MAX_CHARACTERS` | `100000` | `int` |
 | `FIKRAH_REQUEST_MAX_BYTES` | `416384` | `int` |

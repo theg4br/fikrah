@@ -22,6 +22,7 @@ from app.services.note_errors import NoteFailure, NoteServiceError
             (AuthFailure.INVALID_GOOGLE_IDENTITY, 401),
             (AuthFailure.GOOGLE_IDENTITY_CONFLICT, 409),
             (AuthFailure.GOOGLE_UNAVAILABLE, 503),
+            (AuthFailure.GOOGLE_BUSY, 429),
             (AuthFailure.INVALID_REFRESH_TOKEN, 401),
             (AuthFailure.LOGIN_BUDGET_EXCEEDED, 429),
             (AuthFailure.LOGIN_BUDGET_UNAVAILABLE, 503),
