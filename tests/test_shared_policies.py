@@ -37,6 +37,23 @@ def test_connection_selection_preserves_strength_ties_and_existing_limit():
     assert select_related_notes([], candidates) == []
 
 
+@pytest.mark.parametrize("count", [1_000, 10_000])
+def test_large_candidate_sets_keep_the_existing_limit_and_stable_tie_order(count):
+    candidates = [SimpleNamespace(id=i, concepts=["RAG", "Search"]) for i in range(count)]
+    selected = select_related_notes([" rag ", "SEARCH"], candidates)
+    assert [candidate.id for candidate in selected] == list(range(10))
+
+
+@pytest.mark.parametrize("schema", [NoteCreate, NoteUpdate])
+@pytest.mark.parametrize("character", ["a", "💡"])
+def test_large_notes_use_character_limits_for_ascii_and_unicode(monkeypatch, schema, character):
+    monkeypatch.setenv("FIKRAH_NOTE_MAX_CHARACTERS", "100000")
+    content = character * 100_000
+    assert schema(content=content).content == content
+    with pytest.raises(ValidationError, match="100000"):
+        schema(content=content + character)
+
+
 @pytest.mark.parametrize("aware", [False, True])
 def test_timestamp_compatibility_preserves_aware_values(aware):
     value = datetime(2026, 11, 23, tzinfo=timezone(timedelta(hours=2)) if aware else None)
