@@ -59,7 +59,7 @@ unconfirmed.
 
 For LLM chat, answers must be grounded in notes from the selected project. If those notes do not contain enough evidence to answer, the assistant must clearly say that it could not find a supported answer there.
 
-Semantic search is scoped to the currently selected project. Chat returns a complete response in one response rather than streaming tokens. Accepting a refinement replaces the note text and starts LLM processing for the newly saved text.
+Semantic search is scoped to the currently selected project. Chat supports a complete JSON response and an optional POST/SSE transport for incremental previews followed by a saved final exchange. Recognized greetings and assistant identity/help requests can receive concise social replies without note citations; substantive answers remain grounded in the selected project's notes. Accepting a refinement replaces the note text and starts LLM processing for the newly saved text.
 
 The Backend layer is responsible for APIs, authentication, user accounts, data management and persistence, and communication between the mobile application and LLM services.
 
@@ -86,4 +86,4 @@ Confirm these behaviors with the user before treating them as requirements or de
 
 ## Implemented Backend Scope
 
-The initial API surface, authentication flows, project and note lifecycle, LLM processing, semantic search, knowledge connections, graph retrieval, and project-scoped chat have been implemented. See [`docs/features/api-contract-design/api-surface-proposal.md`](../features/api-contract-design/api-surface-proposal.md) for endpoint behavior and [`docs/architecture/layered-modular-architecture.md`](../architecture/layered-modular-architecture.md) for module boundaries. Remaining language decisions above should be resolved before expanding language-specific behavior.
+The initial API surface, authentication flows, project and note lifecycle, LLM processing, semantic search, knowledge connections, graph retrieval, and project-scoped chat have been implemented. The [mobile integration handbook](../mobile/README.md) is the starting point for user journeys, all endpoint contracts, Flutter transport guidance and unresolved integration decisions. See [API contract design](../features/api-contract-design/api-surface-proposal.md) for scope and [layered modular architecture](../architecture/layered-modular-architecture.md) for module boundaries. Remaining language decisions above should be resolved before expanding language-specific behavior.
