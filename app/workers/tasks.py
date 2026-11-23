@@ -11,9 +11,9 @@ from app.infrastructure.broker import bounded_write_connection
 from app.infrastructure.email.worker import deliver_pending_account_emails
 from app.infrastructure.persistence.worker_outbox import WorkerOutboxRepository
 from app.infrastructure.processing_failures import is_retryable_processing_failure
+from app.infrastructure.vector.qdrant import QdrantNoteVectorStore
 from app.infrastructure.worker_container import create_note_processing_service
-from app.rag.errors import RetryableProcessingError
-from app.rag.vector_store import QdrantNoteVectorStore
+from app.services.processing_errors import RetryableProcessingError
 from app.workers.celery_app import celery_app, settings
 
 _STALE_DISPATCH_AFTER = timedelta(seconds=settings.stale_dispatch_after_seconds)

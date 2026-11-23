@@ -7,12 +7,12 @@ from unittest.mock import Mock
 import pytest
 
 from app.core.execution import ExecutionDeadlineExceeded, execution_budget
+from app.infrastructure.vector.qdrant import QdrantNoteVectorStore
 from app.llm.contracts import ChatAnswer
 from app.llm.providers.deepseek import DeepSeekTextGenerator
 from app.llm.providers.gemini import GeminiTextGenerator
+from app.llm.providers.gemini_embeddings import GeminiEmbeddingModel
 from app.llm.providers.openrouter import OpenRouterTextGenerator
-from app.rag.embeddings import GeminiEmbeddingModel
-from app.rag.vector_store import QdrantNoteVectorStore
 
 
 @pytest.mark.asyncio
@@ -141,7 +141,7 @@ async def test_qdrant_clamps_timeout_and_disables_per_call_background_probe(
     client = Mock()
     constructor = Mock(return_value=client)
     monkeypatch.setenv("QDRANT_URL", "http://qdrant.test")
-    monkeypatch.setattr("app.rag.vector_store.QdrantClient", constructor)
+    monkeypatch.setattr("app.infrastructure.vector.qdrant.QdrantClient", constructor)
     async with execution_budget(5):
         store = QdrantNoteVectorStore()
         assert store._client() is client

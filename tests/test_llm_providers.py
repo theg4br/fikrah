@@ -2,7 +2,7 @@ import pytest
 
 import app.llm.factory as llm_factory
 import app.llm.providers.gemini as gemini_adapter
-import app.rag.embeddings as embedding_factory
+import app.llm.providers.gemini_embeddings as embedding_factory
 from app.llm.factory import LLMProviderFactory
 
 
@@ -75,18 +75,18 @@ def test_embedding_factory_uses_gemini_and_validates_dimensions(
             created.append(args)
 
     monkeypatch.setattr(
-        embedding_factory, "GeminiEmbeddingModel", FakeEmbeddingProvider
+        llm_factory, "GeminiEmbeddingModel", FakeEmbeddingProvider
     )
     monkeypatch.setenv("GEMINI_API_KEY", "gemini-test-key")
     monkeypatch.setenv("GEMINI_EMBEDDING_MODEL", "gemini-test-embedding")
     monkeypatch.setenv("GEMINI_EMBEDDING_DIMENSIONS", "1536")
 
-    embedding_factory.create_embedding_model()
+    LLMProviderFactory.create_embedding_model()
     assert created == [("gemini-test-key", "gemini-test-embedding", 1536)]
 
     monkeypatch.setenv("GEMINI_EMBEDDING_DIMENSIONS", "512")
     with pytest.raises(RuntimeError, match="must be 768, 1536, or 3072"):
-        embedding_factory.create_embedding_model()
+        LLMProviderFactory.create_embedding_model()
 
 
 def test_gemini_embedding_uses_document_and_query_retrieval_tasks(

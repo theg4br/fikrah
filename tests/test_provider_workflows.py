@@ -12,8 +12,8 @@ import pytest
 from app.contracts.processing import NoteProcessingSnapshot
 from app.llm.contracts import NoteAnalysis
 from app.rag.errors import SearchUnavailableError
-from app.rag.pipeline import NoteProcessingService
 from app.rag.retriever import retrieve_current_notes
+from app.services.note_processing_service import NoteProcessingService
 
 
 @pytest.mark.parametrize("fail_at", [None, "analysis", "embedding", "persistence"])

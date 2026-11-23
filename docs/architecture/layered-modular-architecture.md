@@ -9,7 +9,7 @@ FIKRAH is a modular monolith organized by technical layer. Each layer has one pr
 | Path | Responsibility |
 | --- | --- |
 | `app/main.py` | Create the FastAPI application, configure lifespan, and register routers. |
-| `app/core/` | Shared settings and security primitives. |
+| `app/core/` | Shared settings, security, timestamp compatibility, and pure knowledge policies. |
 | `app/api/deps.py` | Shared database/authentication dependencies and API-facing service providers. |
 | `app/api/v1/` | Thin HTTP routers and API-to-application mapping, including `/health`. |
 | `app/db/` | Declarative metadata and async/synchronous SQLAlchemy session factories. |
@@ -19,7 +19,7 @@ FIKRAH is a modular monolith organized by technical layer. Each layer has one pr
 | `app/repositories/` | PostgreSQL reads/writes for API use cases and worker connection updates. API repositories flush; API services own commits. |
 | `app/services/` | Application workflows and their service errors/ports. |
 | `app/llm/` | LLM ports, prompts, use cases, factory, and provider adapters. |
-| `app/rag/` | Embedding, Qdrant, candidate retrieval with PostgreSQL validation, and note processing/indexing orchestration. |
+| `app/rag/` | Candidate retrieval with PostgreSQL validation and retrieval errors. |
 | `app/workers/` | Celery app configuration and task entry points. Existing note/vector task names retain their historical `app.worker.tasks.*` values; account-email delivery uses an explicit `app.workers.tasks.*` name. |
 | `app/infrastructure/` | Composition roots and external integrations such as SMTP and Google identity. Worker-specific persistence adapters remain here because they own their existing `session.begin()` transaction boundaries. |
 | `static/emails/` | HTML email templates. |
@@ -56,8 +56,19 @@ PostgreSQL also enforces project ownership consistency: notes and conversations 
 - `app/llm/prompts.py` and `app/llm/use_cases.py` own prompt composition and model-agnostic LLM workflows. Provider adapters only implement provider transport and structured response handling.
 - Text and embedding factories return an owned client with `close()`. Consumers use `app/llm/lifecycle.py` to create/use/close per operation. Async consumers offload the entire ownership scope, so cancellation cannot close an in-flight synchronous SDK request. Prompt use cases borrow their argument; they do not own its lifetime.
 - Recorded-audio transcription follows the same boundaries: the API parses a bounded authenticated upload; `TranscriptionService` validates it and owns an asynchronous `AudioTranscriber`; the Gemini adapter handles Interactions REST transport. This use case creates no notes or persistence records. See [recorded audio transcription](../features/voice-transcription/recorded-audio-transcription.md).
-- `app/rag/pipeline.py` coordinates note analysis and indexing; `app/rag/retriever.py` coordinates vector candidates and PostgreSQL verification.
-- Services, RAG retrieval, and persistence depend on `app/contracts/` for shared values. The retriever does not import service implementation modules; persistence imports processing snapshots from the contract module, never from the pipeline. RAG protocols live in `app/rag/ports.py`.
+- `app/services/note_processing_service.py` coordinates note analysis and indexing; `app/rag/retriever.py` coordinates vector candidates and PostgreSQL verification.
+- Gemini embedding transport lives in `app/llm/providers/gemini_embeddings.py`;
+  `LLMProviderFactory` constructs text, audio, and embedding providers. Qdrant
+  transport lives in `app/infrastructure/vector/qdrant.py`. Provider moves do not
+  change collection names, vector IDs, dimensions, task names, or transaction boundaries.
+- `app/core/knowledge.py` owns concept normalization, display intersections, and
+  stable strongest-match selection. Repositories retain the existing candidate SQL
+  and persist selected connections. The existing ten-outgoing-link limit is unchanged.
+- Project repositories share `owned_project_query`, including its explicit lock
+  option. Note services share one queued-state transition; content revisions and
+  processing generations remain distinct. HTTP title normalizers remain separate
+  from schema field constraints.
+- Services, RAG retrieval, and persistence depend on `app/contracts/` for shared values. The retriever does not import service implementation modules; persistence imports processing snapshots from the contract module, never from the pipeline. Note-processing protocols live in `app/services/processing_ports.py`.
 - `app/workers/tasks.py` contains Celery task entry points. Provider and session construction lives in worker composition modules, not in route handlers.
 
 ## Rules for future changes

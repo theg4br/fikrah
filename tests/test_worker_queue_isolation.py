@@ -61,7 +61,7 @@ class Vectors:
     def delete_note(self, note_id): (root / "vector-deleted").touch()
 async def email(): (root / "email-sent").touch()
 worker_container.LLMProviderFactory.create_text_generator = staticmethod(Generator)
-worker_container.create_embedding_model = Embeddings
+worker_container.LLMProviderFactory.create_embedding_model = staticmethod(Embeddings)
 worker_container.QdrantNoteVectorStore = Vectors
 tasks.QdrantNoteVectorStore = Vectors
 tasks.deliver_pending_account_emails = email

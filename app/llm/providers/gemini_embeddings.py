@@ -1,12 +1,10 @@
-"""Gemini embedding adapter and configuration factory."""
+"""Gemini embedding transport adapter."""
 
 from google import genai
 from google.genai import types
 
-from app.core.config import get_settings
 from app.core.execution import check_execution_budget, remaining_time
 from app.core.telemetry import timed
-from app.llm.ports import EmbeddingModel
 
 
 class GeminiEmbeddingModel:
@@ -45,19 +43,3 @@ class GeminiEmbeddingModel:
         if not response.embeddings or not response.embeddings[0].values:
             raise ValueError("Gemini returned an empty embedding")
         return response.embeddings[0].values
-
-
-def create_embedding_model() -> EmbeddingModel:
-    """Return a fresh embedding model whose client must be closed by its caller."""
-    settings = get_settings()
-    api_key = settings.gemini_api_key
-    if not api_key:
-        raise RuntimeError("GEMINI_API_KEY is required for note embeddings")
-    dimensions = int(settings.gemini_embedding_dimensions)
-    if dimensions not in {768, 1536, 3072}:
-        raise RuntimeError("GEMINI_EMBEDDING_DIMENSIONS must be 768, 1536, or 3072")
-    return GeminiEmbeddingModel(
-        api_key,
-        settings.gemini_embedding_model,
-        dimensions,
-    )

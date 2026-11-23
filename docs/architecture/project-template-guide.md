@@ -15,7 +15,7 @@ This guide explains where code belongs in a layer-first FastAPI backend. It is w
 | `app/contracts/` | Immutable shared commands, results, and processing snapshots. |
 | `app/services/` | Use cases, business rules, application ports, and application errors. |
 | `app/llm/` | Model-independent prompts/use cases, provider interfaces, provider adapters, and provider factory. |
-| `app/rag/` | Embeddings, vector-store adapter, retrieval and verification, and indexing pipelines. |
+| `app/rag/` | Retrieval orchestration and authoritative validation of vector candidates. |
 | `app/workers/` | Queue app configuration and thin task entry points. |
 | `app/infrastructure/` | Composition roots and external-system adapters that do not belong to a product use case. |
 | `static/` | Static files consumed at runtime, such as HTML email templates. |
@@ -31,9 +31,11 @@ This guide explains where code belongs in a layer-first FastAPI backend. It is w
 - **A SQL query or persistence operation?** `app/repositories/<resource>.py`.
 - **A table mapping?** `app/models/`.
 - **A setting, password hash, or token helper used across the app?** `app/core/`.
-- **A vendor SDK call?** An adapter under `app/infrastructure/`, `app/llm/providers/`, or `app/rag/`, according to what it integrates with.
+- **A vendor SDK call?** An adapter under `app/infrastructure/` or `app/llm/providers/`, according to what it integrates with.
 - **A prompt or model-independent structured LLM workflow?** `app/llm/`.
-- **A vector search, embedding, or indexing operation?** `app/rag/`.
+- **A retrieval workflow?** `app/rag/`. Put embedding transport in
+  `app/llm/providers/`, vector storage in `app/infrastructure/vector/`, and
+  note-processing orchestration in `app/services/`.
 - **A background queue entry point?** `app/workers/`; delegate its work to an application service.
 - **A database schema change?** A new Alembic revision under `migrations/versions/`, after approval.
 

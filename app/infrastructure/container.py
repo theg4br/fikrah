@@ -7,9 +7,8 @@ from app.infrastructure.execution import BoundedExecutor
 from app.infrastructure.identity.google import verify_google_id_token
 from app.infrastructure.rate_limits import RedisBudgetStore
 from app.infrastructure.task_dispatch import notify_pending_work
+from app.infrastructure.vector.qdrant import search_note_vectors
 from app.llm.factory import LLMProviderFactory
-from app.rag.embeddings import create_embedding_model
-from app.rag.vector_store import search_note_vectors
 from app.services.auth_service import AuthService
 from app.services.chat_service import ChatService
 from app.services.connections_service import KnowledgeConnectionService
@@ -43,7 +42,7 @@ auth_service = AuthService(
     login_budget=request_budgets.login,
 )
 search_service = SemanticSearchService(
-    embedding_model_factory=create_embedding_model,
+    embedding_model_factory=LLMProviderFactory.create_embedding_model,
     vector_search=search_note_vectors,
     run_blocking=search_executor.run,
 )
