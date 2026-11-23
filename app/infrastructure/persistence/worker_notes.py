@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy import select
 
 from app.contracts.processing import NoteProcessingSnapshot
+from app.core.datetimes import ensure_timezone
 from app.core.telemetry import observe, timed
 from app.db.locks import PROJECT_PROCESSING_LOCK
 from app.db.worker_session import create_worker_session_factory
@@ -44,10 +45,7 @@ class WorkerNoteProcessingRepository:
                 job.status == "processing"
                 and job.worker_task_id != worker_task_id
                 and job.started_at is not None
-                and (
-                    job.started_at.replace(tzinfo=timezone.utc)
-                    if job.started_at.tzinfo is None else job.started_at
-                ) > stale_before
+                and ensure_timezone(job.started_at) > stale_before
             ):
                 return None
             if (
@@ -60,9 +58,7 @@ class WorkerNoteProcessingRepository:
 
             now = datetime.now(timezone.utc)
             if job.dispatched_at is not None:
-                dispatched_at = job.dispatched_at
-                if dispatched_at.tzinfo is None:
-                    dispatched_at = dispatched_at.replace(tzinfo=timezone.utc)
+                dispatched_at = ensure_timezone(job.dispatched_at)
                 observe("note.queue_wait", (now - dispatched_at).total_seconds())
             job.status = "processing"
             job.worker_task_id = worker_task_id

@@ -8,8 +8,8 @@ from app.core.telemetry import measure, timed
 from app.llm.lifecycle import run_with_provider
 from app.llm.ports import EmbeddingModel, StructuredTextGenerator
 from app.llm.use_cases import analyze_note
-from app.rag.errors import RetryableProcessingError
-from app.rag.ports import NoteProcessingRepository, NoteVectorStore
+from app.services.processing_errors import RetryableProcessingError
+from app.services.processing_ports import NoteProcessingRepository, NoteVectorStore
 
 
 class NoteProcessingService:

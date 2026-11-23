@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.infrastructure import worker_container
 from app.models import Note, NoteProcessingJob
-from app.rag.errors import RetryableProcessingError
+from app.services.processing_errors import RetryableProcessingError
 from app.workers.tasks import process_note_job, settings
 from tests import test_note_worker as worker_tests
 
@@ -38,7 +38,7 @@ def test_task_retries_only_transient_failures_and_releases_its_attempt(
     monkeypatch.setattr(
         worker_container.LLMProviderFactory, "create_text_generator", lambda: text
     )
-    monkeypatch.setattr(worker_container, "create_embedding_model", lambda: embedding)
+    monkeypatch.setattr(worker_container.LLMProviderFactory, "create_embedding_model", lambda: embedding)
     monkeypatch.setattr(worker_container, "QdrantNoteVectorStore", lambda: vector)
     retry = Mock(side_effect=Retry("controlled retry"))
     monkeypatch.setattr(process_note_job, "retry", retry)

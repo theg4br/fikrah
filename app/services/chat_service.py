@@ -20,21 +20,21 @@ from app.contracts.chat import (
 from app.core.config import get_settings
 from app.core.execution import BlockingRunner, execution_budget
 from app.core.telemetry import timed
-from app.llm.contracts import ChatHistoryMessage, ChatNoteContext
 from app.llm.lifecycle import run_with_provider
 from app.llm.ports import StructuredTextGenerator
 from app.llm.use_cases import answer_project_question
 from app.models import ChatConversation, ChatMessage, Project
 from app.rag.errors import SearchUnavailableError
 from app.repositories.chat import ChatRepository
+from app.services.chat_context import (
+    CHAT_CONTEXT_LIMIT,
+    load_chat_context,
+    note_context,
+)
 from app.services.chat_errors import ChatFailure, ChatServiceError
-from app.services.chat_policy import is_continuation, is_note_overview, social_reply
+from app.services.chat_policy import social_reply
 from app.services.search_errors import SearchProjectNotFound
 from app.services.search_service import SemanticSearchService
-
-CHAT_CONTEXT_LIMIT = 8
-CHAT_HISTORY_LIMIT = 12
-CHAT_OVERVIEW_BATCH_SIZE = 3
 
 
 @dataclass(frozen=True)
@@ -187,48 +187,17 @@ class ChatService:
         greeting = social_reply(body.content)
         if greeting is not None:
             return _PreparedReply(conversation, greeting, None, [])
-        history_desc = await self._repository.list_recent_messages(
-            db, conversation.id, CHAT_HISTORY_LIMIT
+        context = await load_chat_context(
+            self._repository, db, conversation.id, body.content
         )
-        history = [
-            ChatHistoryMessage(role=message.role, content=message.content)
-            for message in reversed(history_desc)
-        ]
-        retrieval_query = body.content
-        overview = is_note_overview(body.content)
-        shown_ids: set[UUID] = set()
-        if is_continuation(body.content):
-            anchor = next(
-                (
-                    message
-                    for message in history_desc
-                    if message.role == "user"
-                    and not is_continuation(message.content)
-                    and social_reply(message.content) is None
-                ),
-                None,
-            )
-            if anchor is not None and is_note_overview(anchor.content):
-                retrieval_query = anchor.content
-                overview = True
-                # These are actual persisted citations, not claims made by
-                # untrusted conversation text. Keep the same retrieval window.
-                page_history = []
-                for message in history_desc:
-                    if message.id == anchor.id:
-                        break
-                    page_history.append(message)
-                views = await self._message_views(db, page_history)
-                shown_ids = {
-                    source.note_id for view in views for source in view.sources
-                }
+        history = context.history
         project_id = conversation.project_id
-        last_message_id = history_desc[0].id if history_desc else None
+        last_message_id = context.last_message_id
         await db.rollback()
 
         try:
             matches = await self._search_service.retrieve(
-                db, user_id, project_id, retrieval_query, CHAT_CONTEXT_LIMIT
+                db, user_id, project_id, context.retrieval_query, CHAT_CONTEXT_LIMIT
             )
         except SearchProjectNotFound as error:
             raise ChatServiceError(
@@ -240,25 +209,15 @@ class ChatService:
                 "Project knowledge is temporarily unavailable",
             ) from error
 
-        if overview:
-            matches = [match for match in matches if match.note_id not in shown_ids][
-                :CHAT_OVERVIEW_BATCH_SIZE
-            ]
-        note_context = [
-            ChatNoteContext(
-                note_id=str(match.note_id),
-                title=match.title or "Untitled note",
-                content=match.content,
-            )
-            for match in matches
-        ]
+        matches = context.select_matches(matches)
+        notes = note_context(matches)
         matching_revisions = {match.note_id: match.revision for match in matches}
         try:
             answer = await self._run_blocking(
                 run_with_provider,
                 self._text_generator_factory,
                 lambda generator: answer_project_question(
-                    generator, body.content, note_context, history, on_delta=on_delta
+                    generator, body.content, notes, history, on_delta=on_delta
                 ),
             )
         except Exception as error:

@@ -10,23 +10,12 @@ from app.contracts.connections import (
     ProjectKnowledgeGraph,
     RelatedNote,
 )
+from app.core.knowledge import shared_concepts
 from app.repositories.connections import KnowledgeConnectionRepository
 
 
 class KnowledgeResourceNotFound(Exception):
     pass
-
-
-def _shared_concepts(left: list[str], right: list[str]) -> list[str]:
-    right_normalized = {
-        concept.strip().casefold() for concept in right if concept.strip()
-    }
-    shared: dict[str, str] = {}
-    for concept in left:
-        normalized = concept.strip().casefold()
-        if normalized and normalized in right_normalized:
-            shared.setdefault(normalized, concept.strip())
-    return sorted(shared.values(), key=str.casefold)
 
 
 class KnowledgeConnectionService:
@@ -47,12 +36,12 @@ class KnowledgeConnectionService:
         rows = await self._repository.list_note_connections(db, note, user_id)
         results_by_id: dict[UUID, RelatedNote] = {}
         for related, _connection in rows:
-            shared_concepts = _shared_concepts(note.concepts, related.concepts)
-            if shared_concepts and related.id not in results_by_id:
+            overlap = shared_concepts(note.concepts, related.concepts)
+            if overlap and related.id not in results_by_id:
                 results_by_id[related.id] = RelatedNote(
                     note_id=related.id,
                     title=related.title,
-                    shared_concepts=tuple(shared_concepts),
+                    shared_concepts=tuple(overlap),
                     updated_at=related.updated_at,
                 )
         return list(results_by_id.values())
@@ -83,14 +72,14 @@ class KnowledgeConnectionService:
             )
             source = note_by_id[source_id]
             target = note_by_id[target_id]
-            shared_concepts = _shared_concepts(source.concepts, target.concepts)
-            if shared_concepts:
+            overlap = shared_concepts(source.concepts, target.concepts)
+            if overlap:
                 edges_by_pair.setdefault(
                     (source_id, target_id),
                     KnowledgeGraphEdge(
                         source_note_id=source_id,
                         target_note_id=target_id,
-                        shared_concepts=tuple(shared_concepts),
+                        shared_concepts=tuple(overlap),
                     ),
                 )
 

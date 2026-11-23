@@ -7,8 +7,8 @@ import pytest
 from app.llm.contracts import NoteAnalysis
 from app.llm.providers.deepseek import DeepSeekTextGenerator
 from app.llm.providers.gemini import GeminiTextGenerator
+from app.llm.providers.gemini_embeddings import GeminiEmbeddingModel
 from app.llm.providers.openrouter import OpenRouterTextGenerator
-from app.rag.embeddings import GeminiEmbeddingModel
 
 
 @pytest.mark.parametrize("adapter", [DeepSeekTextGenerator, OpenRouterTextGenerator])

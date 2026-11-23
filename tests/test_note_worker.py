@@ -127,7 +127,7 @@ def test_celery_job_analyzes_current_revision_and_upserts_embedding(
         lambda: FakeStructuredTextGenerator(),
     )
     monkeypatch.setattr(
-        worker_container,
+        worker_container.LLMProviderFactory,
         "create_embedding_model",
         lambda: FakeEmbeddingModel(),
     )
@@ -252,7 +252,7 @@ def test_note_processing_links_shared_concepts_only_with_completed_project_notes
         lambda: FakeStructuredTextGenerator(),
     )
     monkeypatch.setattr(
-        worker_container,
+        worker_container.LLMProviderFactory,
         "create_embedding_model",
         lambda: FakeEmbeddingModel(),
     )

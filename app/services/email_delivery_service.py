@@ -7,15 +7,12 @@ from uuid import UUID, uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.datetimes import ensure_timezone
 from app.core.telemetry import timed
 from app.repositories.email import EmailOutboxRepository
 from app.services.auth_ports import EmailDeliveryError
 
 logger = logging.getLogger(__name__)
-
-
-def _utc(value: datetime) -> datetime:
-    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
 
 
 class EmailDeliveryService:
@@ -43,9 +40,9 @@ class EmailDeliveryService:
                 or delivery.cancelled_at is not None
             ):
                 return False
-            if _utc(delivery.next_attempt_at) > now or (
+            if ensure_timezone(delivery.next_attempt_at) > now or (
                 delivery.claimed_at is not None
-                and _utc(delivery.claimed_at) > now - timedelta(seconds=60)
+                and ensure_timezone(delivery.claimed_at) > now - timedelta(seconds=60)
             ):
                 return False
             if (

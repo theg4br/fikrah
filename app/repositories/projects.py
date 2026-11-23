@@ -16,6 +16,7 @@ from app.models import (
     Project,
     VectorCleanupRequest,
 )
+from app.repositories.project_queries import owned_project_query
 
 
 class ProjectRepository:
@@ -36,12 +37,7 @@ class ProjectRepository:
     async def find_owned(
         self, db: AsyncSession, user_id: UUID, project_id: UUID, *, lock: bool = False
     ) -> Project | None:
-        query = select(Project).where(
-            Project.id == project_id, Project.user_id == user_id
-        )
-        if lock:
-            query = query.with_for_update()
-        return await db.scalar(query)
+        return await db.scalar(owned_project_query(user_id, project_id, lock=lock))
 
     async def create(self, db: AsyncSession, user_id: UUID, name: str) -> Project:
         project = Project(user_id=user_id, name=name, is_general=False)

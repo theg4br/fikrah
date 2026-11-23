@@ -1,9 +1,10 @@
 """Application composition for configured LLM ports."""
 
 from app.core.config import get_settings
-from app.llm.ports import AudioTranscriber, StructuredTextGenerator
+from app.llm.ports import AudioTranscriber, EmbeddingModel, StructuredTextGenerator
 from app.llm.providers.deepseek import DeepSeekTextGenerator
 from app.llm.providers.gemini import GeminiTextGenerator
+from app.llm.providers.gemini_embeddings import GeminiEmbeddingModel
 from app.llm.providers.gemini_transcription import GeminiAudioTranscriber
 from app.llm.providers.openrouter import OpenRouterTextGenerator
 
@@ -58,4 +59,20 @@ class LLMProviderFactory:
             )
         raise RuntimeError(
             "LLM_TEXT_PROVIDER must be 'deepseek', 'gemini', or 'openrouter'"
+        )
+
+    @staticmethod
+    def create_embedding_model() -> EmbeddingModel:
+        """Return a fresh embedding model whose client must be closed by its caller."""
+        settings = get_settings()
+        api_key = settings.gemini_api_key
+        if not api_key:
+            raise RuntimeError("GEMINI_API_KEY is required for note embeddings")
+        dimensions = settings.gemini_embedding_dimensions
+        if dimensions not in {768, 1536, 3072}:
+            raise RuntimeError("GEMINI_EMBEDDING_DIMENSIONS must be 768, 1536, or 3072")
+        return GeminiEmbeddingModel(
+            api_key,
+            settings.gemini_embedding_model,
+            dimensions,
         )

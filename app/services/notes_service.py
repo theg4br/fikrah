@@ -165,10 +165,7 @@ class NoteService:
             note.refinement_proposal = None
         if "title" in body.provided_fields:
             note.title = body.title
-        note.revision += 1
-        note.processing_generation += 1
-        note.processing_status = "queued"
-        self._enqueue(db, note)
+        self._queue_processing(db, note, increment_revision=True)
         await db.commit()
         return await self._processing_saved(db, note)
 
@@ -178,9 +175,7 @@ class NoteService:
         note = await self._owned_note(db, user_id, note_id, lock=True)
         if note.processing_status in {"queued", "processing"}:
             return self._result(note)
-        note.processing_generation += 1
-        note.processing_status = "queued"
-        self._enqueue(db, note)
+        self._queue_processing(db, note)
         await db.commit()
         return await self._processing_saved(db, note)
 
@@ -202,10 +197,8 @@ class NoteService:
                 NoteFailure.PROCESSING_INCOMPLETE,
                 "The note must finish processing before regenerating its proposal",
             )
-        note.processing_generation += 1
         note.refinement_proposal = None
-        note.processing_status = "queued"
-        self._enqueue(db, note)
+        self._queue_processing(db, note)
         await db.commit()
         return await self._processing_saved(db, note)
 
@@ -229,10 +222,7 @@ class NoteService:
             )
         note.content = note.refinement_proposal
         note.refinement_proposal = None
-        note.revision += 1
-        note.processing_generation += 1
-        note.processing_status = "queued"
-        self._enqueue(db, note)
+        self._queue_processing(db, note, increment_revision=True)
         await db.commit()
         return await self._processing_saved(db, note)
 
@@ -301,5 +291,11 @@ class NoteService:
             updated_at=note.updated_at,
         )
 
-    def _enqueue(self, db: AsyncSession, note: Note) -> None:
+    def _queue_processing(
+        self, db: AsyncSession, note: Note, *, increment_revision: bool = False
+    ) -> None:
+        if increment_revision:
+            note.revision += 1
+        note.processing_generation += 1
+        note.processing_status = "queued"
         self._repository.enqueue_processing(db, note)

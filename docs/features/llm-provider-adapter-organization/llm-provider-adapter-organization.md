@@ -11,7 +11,7 @@ Keep each LLM provider's integration boundary explicit while sharing only behavi
 - `app/llm/providers/openrouter.py` owns `OpenRouterTextGenerator` and its endpoint.
 - `app/llm/providers/gemini.py` owns `GeminiTextGenerator`.
 - `app/llm/providers/openai_compatible.py` contains shared Chat Completions transport and response parsing used by DeepSeek and OpenRouter.
-- `app/rag/embeddings.py` owns Gemini embeddings.
+- `app/llm/providers/gemini_embeddings.py` owns Gemini embeddings.
 - `app/llm/contracts.py` and `app/llm/ports.py` define shared result contracts and the `StructuredTextGenerator` port. `app/llm/prompts.py` and `app/llm/use_cases.py` own product prompt composition, note/chat workflows, and output contracts. Provider adapters handle provider transport and structured response validation only.
 
 ## Runtime Behavior

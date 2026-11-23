@@ -12,6 +12,7 @@ from app.models import (
     Note,
     Project,
 )
+from app.repositories.project_queries import owned_project_query
 
 
 class ChatRepository:
@@ -49,12 +50,7 @@ class ChatRepository:
     async def find_owned_project(
         self, db: AsyncSession, user_id: UUID, project_id: UUID, *, lock: bool = False
     ) -> Project | None:
-        query = select(Project).where(
-            Project.id == project_id, Project.user_id == user_id
-        )
-        if lock:
-            query = query.with_for_update()
-        return await db.scalar(query)
+        return await db.scalar(owned_project_query(user_id, project_id, lock=lock))
 
     async def find_owned_conversation(
         self,

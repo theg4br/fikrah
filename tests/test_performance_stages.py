@@ -69,7 +69,7 @@ def test_worker_timings_share_attempt_context_and_measure_dispatch_age(
         test_note_worker.FakeStructuredTextGenerator,
     )
     monkeypatch.setattr(
-        worker_container, "create_embedding_model", test_note_worker.FakeEmbeddingModel
+        worker_container.LLMProviderFactory, "create_embedding_model", test_note_worker.FakeEmbeddingModel
     )
     monkeypatch.setattr(
         worker_container, "QdrantNoteVectorStore", test_note_worker.FakeVectorStore
