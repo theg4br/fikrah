@@ -52,6 +52,11 @@ PostgreSQL also enforces project ownership consistency: notes and conversations 
 
 - Authentication routes and schemas live in `app/api/v1/auth.py` and `app/schemas/auth.py`; workflows/errors/ports live in `app/services/`, and shared commands/results in `app/contracts/`.
 - Projects, notes, search, connections, and chat follow the same split: HTTP in `app/api/v1/`, schemas in `app/schemas/`, workflows in `app/services/`, and database access in `app/repositories/`.
+- `app/services/chat_context.py` prepares chronological history, overview anchors,
+  previously cited note IDs, and model note context. `ChatService` retains
+  authorization, retrieval/generation orchestration, revision checks, and atomic
+  exchange persistence. Context extraction preserves the existing bounded history
+  and retrieval window; it does not introduce project-wide pagination.
 - Persistence classes live in feature-specific model modules. `auth.py` owns account/authentication tables only; note/project/connection/processing tables are defined once in their respective modules. `app.models` is the canonical model catalog used to load Alembic metadata.
 - `app/llm/prompts.py` and `app/llm/use_cases.py` own prompt composition and model-agnostic LLM workflows. Provider adapters only implement provider transport and structured response handling.
 - Text and embedding factories return an owned client with `close()`. Consumers use `app/llm/lifecycle.py` to create/use/close per operation. Async consumers offload the entire ownership scope, so cancellation cannot close an in-flight synchronous SDK request. Prompt use cases borrow their argument; they do not own its lifetime.
