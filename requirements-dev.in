@@ -1,0 +1,6 @@
+-r requirements.in
+pytest
+pytest-asyncio
+aiosqlite>=0.20,<1.0
+ruff==0.16.10
+pip-tools[stable]==7.7.0
