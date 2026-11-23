@@ -6,6 +6,7 @@ from app.infrastructure.email.smtp import send_action_email, send_welcome_email
 from app.infrastructure.execution import BoundedExecutor
 from app.infrastructure.identity.google import verify_google_id_token
 from app.infrastructure.rate_limits import RedisBudgetStore
+from app.infrastructure.readiness import check_postgresql, check_qdrant, check_redis
 from app.infrastructure.task_dispatch import notify_pending_work
 from app.infrastructure.vector.qdrant import search_note_vectors
 from app.llm.factory import LLMProviderFactory
@@ -14,6 +15,7 @@ from app.services.chat_service import ChatService
 from app.services.connections_service import KnowledgeConnectionService
 from app.services.notes_service import NoteService
 from app.services.projects_service import ProjectService
+from app.services.readiness_service import ReadinessService
 from app.services.request_budgets import RequestBudgets
 from app.services.search_service import SemanticSearchService
 from app.services.transcription_service import TranscriptionService
@@ -23,6 +25,10 @@ request_budgets = RequestBudgets(
     login_limit=lambda: get_settings().fikrah_login_limit_per_minute,
     llm_limit=lambda: get_settings().fikrah_llm_limit_per_minute,
 )
+
+readiness_service = ReadinessService({
+    "postgresql": check_postgresql, "redis": check_redis, "qdrant": check_qdrant,
+})
 
 search_executor = BoundedExecutor(get_settings().fikrah_search_executor_workers, "search")
 text_executor = BoundedExecutor(get_settings().fikrah_llm_executor_workers, "text")
