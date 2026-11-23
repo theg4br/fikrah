@@ -19,6 +19,7 @@ from app.contracts.auth import (
     PasswordReset,
     RefreshToken,
 )
+from app.core.datetimes import ensure_timezone
 from app.core.security import (
     DUMMY_PASSWORD_HASH,
     REFRESH_TOKEN_TTL,
@@ -47,10 +48,6 @@ VerifyGoogleIdToken = Callable[[str, str], dict[str, object]]
 GoogleClientId = Callable[[], str | None]
 
 
-def _utc(value: datetime) -> datetime:
-    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
-
-
 async def _password_work(operation: Callable, *args):
     try:
         return await run_password_work(operation, *args)
@@ -76,7 +73,7 @@ async def _send_limit_available(
         return False
     if last is not None:
         # SQLite may return naive values in tests; PostgreSQL returns timezone-aware timestamps.
-        last = _utc(last)
+        last = ensure_timezone(last)
         if last > now - timedelta(seconds=60):
             return False
     await repository.add_email_send_attempt(db, email)
@@ -216,7 +213,7 @@ class AuthService:
             user is None
             or action is None
             or action.used_at is not None
-            or _utc(action.expires_at) <= now
+            or ensure_timezone(action.expires_at) <= now
         ):
             raise AuthServiceError(AuthFailure.INVALID_ACTION_TOKEN, message)
         return action, user
@@ -449,7 +446,7 @@ class AuthService:
                             db, user.id, previous.family_id, now
                         )
                     elif (
-                        _utc(previous.expires_at) > now
+                        ensure_timezone(previous.expires_at) > now
                         and user.email_verified_at is not None
                     ):
                         tokens = await _issue_session(

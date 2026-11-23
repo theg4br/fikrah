@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core.content_limits import validate_note_size
+from app.schemas.validators import normalize_optional_title
 
 
 class NoteCreate(BaseModel):
@@ -20,13 +21,7 @@ class NoteCreate(BaseModel):
             raise ValueError("Note content cannot be blank")
         return validate_note_size(content)
 
-    @field_validator("title")
-    @classmethod
-    def normalize_title(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        title = value.strip()
-        return title or None
+    normalize_title = field_validator("title")(normalize_optional_title)
 
 
 class NoteUpdate(BaseModel):
@@ -43,13 +38,7 @@ class NoteUpdate(BaseModel):
             raise ValueError("Note content cannot be blank")
         return validate_note_size(content)
 
-    @field_validator("title")
-    @classmethod
-    def normalize_title(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        title = value.strip()
-        return title or None
+    normalize_title = field_validator("title")(normalize_optional_title)
 
     @model_validator(mode="after")
     def require_a_change(self) -> "NoteUpdate":

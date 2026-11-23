@@ -6,15 +6,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Note, Project
+from app.repositories.project_queries import owned_project_query
 
 
 class SearchRepository:
     async def find_owned_project(
         self, db: AsyncSession, user_id: UUID, project_id: UUID
     ) -> Project | None:
-        return await db.scalar(
-            select(Project).where(Project.id == project_id, Project.user_id == user_id)
-        )
+        return await db.scalar(owned_project_query(user_id, project_id))
 
     async def find_completed_notes(
         self,
