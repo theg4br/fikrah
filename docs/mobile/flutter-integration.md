@@ -195,6 +195,22 @@ Project/conversation creation and chat messages have no idempotency protocol. Ge
 
 Note PATCH has no expected-revision precondition. Do not infer conflict detection from a returned revision. Serialize a screen's own saves and avoid silently overwriting a newer server result with a late response.
 
+### Favorite metadata
+
+Use `PUT /v1/notes/{note_id}/favorite` with `{"is_favorite":true}` or false.
+Keep a per-note intent sequence and serialize writes; never replay an invert/toggle.
+Use the returned `NoteView` as the confirmed state and roll back an optimistic
+star on failure. After an uncertain response, reload detail before retrying.
+Favorites do not increment content revision/generation or change timestamps, so
+those fields cannot order two favorite responses: discard stale local requests
+using their intent sequence and account/project epoch.
+
+For the selected project's favorites view, fetch the server list with
+`?is_favorite=true`; do not filter a partially loaded client cache. Omit the query
+for all notes or pass false for unstarred notes. Lists remain unpaginated arrays.
+Update matching detail/list/search caches from confirmed responses. A favorite
+write does not require processing polling; any pre-existing processing continues.
+
 ## 7. Polling asynchronous processing
 
 Recommended **client policy**, not a server-mandated interval:

@@ -2,7 +2,7 @@
 
 This is the starting point for the Flutter team. It describes the **implemented backend contract**, the user journeys it supports, and the decisions still needed before release.
 
-**Contract baseline:** email OTP activation/recovery update, reviewed on 26 November 2026; requires migration `20261126_01`. Documentation changes do not imply that an existing running server has been upgraded to this revision.
+**Contract baseline:** email OTP activation/recovery and saved note favorites, reviewed on 26 November 2026; requires migration `20261126_02`. Documentation changes do not imply that an existing running server has been upgraded to this revision.
 
 ## Read in this order
 
@@ -10,7 +10,7 @@ This is the starting point for the Flutter team. It describes the **implemented 
 | --- | --- |
 | [Product and user journeys](product-and-user-journeys.md) | What FIKRAH does, ownership boundaries, each user story and its call sequence. |
 | [Data models and errors](data-models-and-errors.md) | Exact field names, nullability, limits, timestamps, status codes and client recovery behavior. |
-| [Endpoint reference](api-reference.md) | Every one of the 42 application operations: purpose, trigger, request, success result and additional failure cases. |
+| [Endpoint reference](api-reference.md) | Every one of the 43 application operations: purpose, trigger, request, success result and additional failure cases. |
 | [Flutter integration](flutter-integration.md) | Base URL setup, session/refresh coordination, idempotency, polling, streaming, audio upload and local state. |
 | [Integration acceptance and open decisions](integration-acceptance.md) | A practical handover checklist, known gaps and decisions that must not be guessed. |
 | [OpenAPI snapshot](openapi.json) | Importable schema generated from this source revision; useful for API clients and model generation. |
@@ -39,6 +39,7 @@ Saving is immediate; LLM processing is asynchronous. A successful save response 
 - IDs and timestamps come from the backend. A title can temporarily be null while processing.
 - A proposal is not the saved note content. Only acceptance replaces content.
 - Keep the latest `processing_generation` when taking proposal actions.
+- Favorites use an explicit true/false PUT; server-filter the project list. These metadata writes do not trigger processing or change content revisions/timestamps.
 - Serialize refresh requests. Reusing an already rotated refresh token revokes its session family.
 - Chat deltas are previews. Only the final `complete` event is the saved authoritative exchange.
 - The graph API provides actual relationships. Mobile owns layout, colors, clusters and gestures.

@@ -934,6 +934,22 @@
               "format": "uuid",
               "title": "Project Id"
             }
+          },
+          {
+            "name": "is_favorite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Is Favorite"
+            }
           }
         ],
         "responses": {
@@ -950,6 +966,67 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/notes/{note_id}/favorite": {
+      "put": {
+        "tags": [
+          "notes"
+        ],
+        "summary": "Set Note Favorite",
+        "operationId": "set_note_favorite_v1_notes__note_id__favorite_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "note_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Note Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteFavoriteUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Note not found"
           },
           "422": {
             "description": "Validation Error",
@@ -2399,6 +2476,19 @@
         ],
         "title": "NoteCreate"
       },
+      "NoteFavoriteUpdate": {
+        "properties": {
+          "is_favorite": {
+            "type": "boolean",
+            "title": "Is Favorite"
+          }
+        },
+        "type": "object",
+        "required": [
+          "is_favorite"
+        ],
+        "title": "NoteFavoriteUpdate"
+      },
       "NoteUpdate": {
         "properties": {
           "content": {
@@ -2456,6 +2546,10 @@
             "type": "string",
             "title": "Content"
           },
+          "is_favorite": {
+            "type": "boolean",
+            "title": "Is Favorite"
+          },
           "concepts": {
             "items": {
               "type": "string"
@@ -2503,6 +2597,7 @@
           "project_id",
           "title",
           "content",
+          "is_favorite",
           "concepts",
           "refinement_proposal",
           "revision",
@@ -2803,6 +2898,10 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At"
+          },
+          "is_favorite": {
+            "type": "boolean",
+            "title": "Is Favorite"
           }
         },
         "type": "object",
@@ -2811,7 +2910,8 @@
           "title",
           "content",
           "score",
-          "updated_at"
+          "updated_at",
+          "is_favorite"
         ],
         "title": "SearchResult"
       },
