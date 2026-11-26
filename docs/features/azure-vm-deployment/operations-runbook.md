@@ -26,6 +26,8 @@ Services restart automatically after Docker starts. Persistent database volumes 
 
 ## Updates
 
+Normal releases use [main-only CI/CD](../continuous-delivery/main-only-deployment.md). Merge tested changes through `dev` into `main`; the pipeline builds/tests/packages the image and installs it on this VM. The manual commands below are a fallback.
+
 The deployment scripts live under `infra/azure-vm/`. Generate configuration once with `configure_runtime.py --otp-only`, transfer securely, and install with `install_runtime.sh`. Existing credentials are deliberately retained.
 
 For an application update, commit reviewed changes, package using `package_release.sh PRIVATE_OUTPUT_PARENT`, transfer the package through verified SSH, and run `sudo install_release.sh STAGED_RELEASE_DIRECTORY` on the VM. The installer checks image/configuration, stops demo writers during migration, starts services and checks readiness. No automatic backup runs. Do not automatically downgrade the database if a migration fails.

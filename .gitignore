@@ -9,3 +9,7 @@ AGENTS.md
 
 # Local Azure planning and deployment state can contain private configuration.
 .copilot-azure/
+
+# CI release output and local validation reports.
+.ci-release/
+ci-results-*.xml
