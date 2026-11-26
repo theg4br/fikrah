@@ -1,0 +1,21 @@
+{
+	email {$ACME_EMAIL}
+	admin off
+}
+
+{$FIKRAH_HOSTNAME} {
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+	}
+	# Uvicorn access logging is also disabled: legacy action-token URLs are private.
+	# Caddy access logging is intentionally not enabled.
+	reverse_proxy api:8000 {
+		flush_interval -1
+		transport http {
+			# Uvicorn's default keep-alive timeout is five seconds.
+			keepalive 4s
+		}
+	}
+}

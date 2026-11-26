@@ -1,0 +1,200 @@
+# Standalone deployment definition. Never layer this over the development compose.yaml.
+name: fikrah
+
+x-app: &app
+  image: ${FIKRAH_IMAGE:?Select an immutable release image}
+  platform: linux/amd64
+  env_file:
+    - path: ${FIKRAH_CONFIG_DIR:-/etc/fikrah}/app.env
+      format: raw
+  restart: unless-stopped
+  read_only: true
+  tmpfs:
+    - /tmp:size=64m,mode=1777,noexec,nosuid,nodev
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 256
+  logging: &logging
+    driver: local
+    options: {max-size: "10m", max-file: "3"}
+  networks: [data]
+  depends_on: &dependencies
+    postgres: {condition: service_healthy}
+    redis: {condition: service_healthy}
+    qdrant: {condition: service_healthy}
+
+x-worker: &worker
+  <<: *app
+  stop_grace_period: 300s
+  mem_limit: 192m
+
+services:
+  proxy:
+    image: caddy:2-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0
+    platform: linux/amd64
+    environment:
+      FIKRAH_HOSTNAME: ${FIKRAH_HOSTNAME:?Set the public HTTPS hostname}
+      ACME_EMAIL: ${ACME_EMAIL:?Set the certificate contact email}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    mem_limit: 96m
+    pids_limit: 128
+    logging: *logging
+    networks:
+      edge: {ipv4_address: 172.28.0.2}
+    depends_on:
+      api: {condition: service_healthy}
+
+  postgres:
+    image: postgres:16-alpine@sha256:f2f98726820d0342055351c6e9d36e705f5bfffb3dd53ff556325114b08afb6d
+    platform: linux/amd64
+    environment:
+      POSTGRES_DB: fikrah
+      POSTGRES_USER: fikrah_admin
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_admin_password
+      APP_DB_PASSWORD_FILE: /run/secrets/app_db_password
+    secrets: [postgres_admin_password, app_db_password]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init.sh:/docker-entrypoint-initdb.d/10-app-role.sh:ro
+    command: [postgres, -c, shared_buffers=64MB, -c, work_mem=2MB]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -h 127.0.0.1 -U fikrah_admin -d fikrah"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+    mem_limit: 512m
+    pids_limit: 256
+    cap_drop: [NET_RAW, NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    logging: *logging
+    networks: [data]
+
+  redis:
+    image: redis:7-alpine@sha256:7f7d30b7fdd09467bac58198a1f166dd69789d348d4fe859cccb20e0cf287fbe
+    platform: linux/amd64
+    user: "999:999"
+    command: [redis-server, /usr/local/etc/redis/redis.conf]
+    volumes:
+      - redis_data:/data
+      - ${FIKRAH_CONFIG_DIR:-/etc/fikrah}/secrets/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    secrets: [redis_password]
+    healthcheck:
+      test: [CMD-SHELL, "REDISCLI_AUTH=$$(cat /run/secrets/redis_password) redis-cli ping | grep -qx PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 192m
+    pids_limit: 128
+    logging: *logging
+    networks: [data]
+
+  qdrant:
+    image: qdrant/qdrant:v1.19.1@sha256:12364fe851b9f17356fc88189fc06d1b521262e04659ec7345975b00c9246a10
+    platform: linux/amd64
+    env_file:
+      - path: ${FIKRAH_CONFIG_DIR:-/etc/fikrah}/qdrant.env
+        format: raw
+    volumes:
+      - qdrant_data:/qdrant/storage
+      - qdrant_snapshots:/qdrant/snapshots
+    healthcheck:
+      test: [CMD-SHELL, "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 768m
+    pids_limit: 256
+    logging: *logging
+    networks: [data]
+
+  migrate:
+    <<: *app
+    profiles: [operations]
+    restart: "no"
+    depends_on:
+      postgres: {condition: service_healthy}
+    command: [alembic, upgrade, head]
+    mem_limit: 384m
+
+  api:
+    <<: *app
+    command: [uvicorn, app.main:app, --host, 0.0.0.0, --port, "8000", --proxy-headers, --forwarded-allow-ips, "172.28.0.2", --no-access-log]
+    networks:
+      data: {}
+      edge: {ipv4_address: 172.28.0.3}
+    mem_limit: 384m
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 15s
+
+  worker:
+    <<: *worker
+    command: [celery, -A, "app.workers.celery_app:celery_app", worker, --loglevel=info, --pool=prefork, "--queues=fikrah.notes,celery", --concurrency=1]
+    mem_limit: 640m
+    networks: [data, outbound]
+
+  dispatcher-worker:
+    <<: *worker
+    command: [celery, -A, "app.workers.celery_app:celery_app", worker, --loglevel=info, --pool=prefork, --queues=fikrah.dispatch, --concurrency=1]
+
+  email-worker:
+    <<: *worker
+    command: [celery, -A, "app.workers.celery_app:celery_app", worker, --loglevel=info, --pool=prefork, --queues=fikrah.emails, --concurrency=1]
+    networks: [data, outbound]
+
+  vector-worker:
+    <<: *worker
+    command: [celery, -A, "app.workers.celery_app:celery_app", worker, --loglevel=info, --pool=prefork, --queues=fikrah.vectors, --concurrency=1]
+    mem_limit: 256m
+
+  scheduler:
+    <<: *worker
+    command: [celery, -A, "app.workers.celery_app:celery_app", beat, --loglevel=info, --schedule=/tmp/celerybeat-schedule]
+    mem_limit: 128m
+
+networks:
+  data:
+    internal: true
+  outbound: {}
+  edge:
+    ipam:
+      config: [{subnet: 172.28.0.0/24}]
+
+volumes:
+  postgres_data: {}
+  redis_data: {}
+  qdrant_data: {}
+  qdrant_snapshots: {}
+  caddy_data: {}
+  caddy_config: {}
+
+secrets:
+  postgres_admin_password:
+    file: ${FIKRAH_CONFIG_DIR:-/etc/fikrah}/secrets/postgres_admin_password
+  app_db_password:
+    file: ${FIKRAH_CONFIG_DIR:-/etc/fikrah}/secrets/app_db_password
+  redis_password:
+    file: ${FIKRAH_CONFIG_DIR:-/etc/fikrah}/secrets/redis_password
