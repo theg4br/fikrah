@@ -180,3 +180,4 @@ def test_proxy_validation_does_not_reuse_the_live_static_address():
     source = (RUNTIME / "install_release.sh").read_text()
     assert 'run --rm --no-deps -T proxy' not in source
     assert "'docker', 'run', '--rm', '--network', 'none'" in source
+    assert '["services"]["proxy"]["image"]' in source

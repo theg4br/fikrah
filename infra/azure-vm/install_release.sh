@@ -47,7 +47,7 @@ assert image['Config']['Labels']['org.opencontainers.image.revision'] == manifes
 PY
 "${compose[@]}" pull --quiet postgres redis qdrant proxy
 # Validates proxy configuration without changing live services.
-proxy_image=$("${compose[@]}" config --images proxy)
+proxy_image=$("${compose[@]}" config --format json --no-env-resolution proxy | python3 -c 'import json, sys; print(json.load(sys.stdin)["services"]["proxy"]["image"])')
 python3 - "$release_dir" "$proxy_image" <<'PROXY'
 import pathlib, shlex, subprocess, sys
 root = pathlib.Path(sys.argv[1])
