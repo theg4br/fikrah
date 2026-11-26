@@ -69,7 +69,7 @@ def generate(args: argparse.Namespace) -> None:
         raise ValueError("Invalid backup storage account name")
     if not args.source_env.is_file():
         raise ValueError("Source environment file does not exist")
-    action_url = https_url(args.email_action_url)
+    action_url = None if args.otp_only else https_url(args.email_action_url)
     # Read known project options only. New deployment never copies local users/data.
     defaults = dotenv_values(REPO / ".env.example", interpolate=False)
     source = dotenv_values(args.source_env, interpolate=False)
@@ -118,8 +118,9 @@ def generate(args: argparse.Namespace) -> None:
         "QDRANT_URL": "http://qdrant:6333",
         "QDRANT_API_KEY": passwords["qdrant_key"],
         "FIKRAH_JWT_SECRET": secrets.token_hex(48),
-        "EMAIL_ACTION_BASE_URL": action_url,
     })
+    if action_url is not None:
+        app["EMAIL_ACTION_BASE_URL"] = action_url
     write_private(target / "app.env", raw_env_text(app))
     write_private(target / "qdrant.env", raw_env_text({
         "QDRANT__SERVICE__API_KEY": passwords["qdrant_key"],
@@ -149,7 +150,9 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--hostname", required=True)
     parser.add_argument("--email", required=True)
-    parser.add_argument("--email-action-url", required=True)
+    actions = parser.add_mutually_exclusive_group(required=True)
+    actions.add_argument("--email-action-url")
+    actions.add_argument("--otp-only", action="store_true", help="Leave legacy email links unconfigured")
     parser.add_argument("--backup-storage-account", default="stfikrahbackup2310")
     args = parser.parse_args()
     try:

@@ -37,7 +37,7 @@ def runtime(tmp_path):
     original = source.read_bytes()
     target = tmp_path / "runtime"
     args = argparse.Namespace(source_env=source, output_dir=target, hostname="api.example.com",
-                              email="operator@example.com", email_action_url="https://app.example.com/auth",
+                              email="operator@example.com", otp_only=False, email_action_url="https://app.example.com/auth",
                               backup_storage_account="stfikrahbackup2310")
     config.generate(args)
     assert source.read_bytes() == original
@@ -153,3 +153,13 @@ def test_package_runtime_allowlist_excludes_test_directories():
     source = (RUNTIME / "package_release.sh").read_text()
     assert "git archive HEAD infra/azure-vm |" not in source
     assert "runtime_files=(compose.yaml Caddyfile postgres-init.sh bootstrap.sh install_runtime.sh install_release.sh backup.py)" in source
+
+
+def test_otp_only_leaves_legacy_links_unconfigured(runtime, tmp_path):
+    args, _ = runtime
+    args.output_dir = tmp_path / "otp-runtime"
+    args.otp_only = True
+    args.email_action_url = None
+    config.generate(args)
+    content = (args.output_dir / "app.env").read_text()
+    assert "EMAIL_ACTION_BASE_URL=" not in content

@@ -51,6 +51,8 @@ python infra/azure-vm/configure_runtime.py \
 
 The generator reads but never edits the source. It creates independent DB/Redis/Qdrant/JWT credentials. No configuration is emitted to stdout. Transfer the protected directory, run `sudo install_runtime.sh STAGED_CONFIG_DIRECTORY`, then remove only the transferred staging directory after verifying the protected installation. Keep a separately secured recovery copy. Never print `docker compose config`, `docker inspect`, `/etc/fikrah/app.env` or backup contents into shared logs: these contain credentials. Use `config --quiet`.
 
+The user approved initial production authentication through OTP only. Use `--otp-only` instead of `--email-action-url` until a real mobile action URL is approved. This omits `EMAIL_ACTION_BASE_URL`; legacy link-based endpoints remain unconfigured and must not be presented as working. Login/password/Google contracts and OTP endpoints are unchanged.
+
 ## 3. Package and install a release
 
 The checkout must be clean and committed. The package uses `git archive HEAD`, not local untracked files. It resolves the Python base to a digest and uses hash-locked requirements. Keep the original release bundle off the VM for disaster recovery.
