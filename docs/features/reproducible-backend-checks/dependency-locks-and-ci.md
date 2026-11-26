@@ -41,8 +41,8 @@ No dependency update changes application APIs or deploys an existing environment
 
 ## CI execution
 
-`.github/workflows/backend-checks.yml` runs on feature pushes, pull requests to
-`dev`/`main`, pushes to `dev`/`main`, and manual dispatch. It uses pinned action revisions and
+`.github/workflows/backend-checks.yml` runs on pull requests to `dev`/`main`, pushes to
+`dev`/`main`, and manual dispatch. Feature pushes are checked through their pull requests, avoiding duplicate runs. It uses pinned action revisions and
 read-only repository permissions. The job:
 
 1. Installs the hashed development lock on Python 3.12.
