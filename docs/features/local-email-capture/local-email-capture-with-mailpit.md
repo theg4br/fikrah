@@ -8,11 +8,19 @@ local development without sending messages to real recipients.
 ## Behavior
 
 - Compose starts Mailpit alongside the backend stack.
-- The API sends SMTP to `mailpit:1025` without TLS or credentials.
+- Without configured SMTP values, the API and email worker send to
+  `mailpit:1025` without TLS or credentials.
 - Mailpit's web UI is available at `http://localhost:8025`.
 - SMTP and UI host ports bind to loopback and can be changed with
   `FIKRAH_MAILPIT_SMTP_PORT` and `FIKRAH_MAILPIT_UI_PORT`.
-- Messages are captured locally in memory and are not relayed to external SMTP.
+- In Mailpit mode, messages are captured locally in memory and are not relayed.
+- Explicit `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_USERNAME`,
+  `SMTP_PASSWORD`, `SMTP_USE_TLS`, and `SMTP_START_TLS` values from the Compose
+  environment/`.env` take precedence over these local defaults. Configure the
+  complete set for an external provider. External messages do not appear in Mailpit.
+- After changing SMTP configuration, recreate the API and email worker with
+  `docker compose up -d --no-deps api email-worker`. SMTP settings are runtime
+  configuration; rebuilding an image is unnecessary.
 - A backend run directly on the host uses the local SMTP values in `.env` and
   connects to `localhost` on the configured Mailpit SMTP port.
 
