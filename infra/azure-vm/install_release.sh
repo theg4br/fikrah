@@ -31,6 +31,8 @@ cp -- "$stage/"* "$release_dir/"
 chown -R root:root "$release_dir"
 find "$release_dir" -type f -exec chmod 0640 {} +
 find "$release_dir" -type f -name '*.sh' -exec chmod 0750 {} +
+# The Postgres entrypoint drops to uid 70 before running this NONSECRET file.
+chmod 0755 "$release_dir/postgres-init.sh"
 compose=(docker compose --project-name fikrah --env-file /etc/fikrah/compose.env --env-file "$release_dir/release.env" --file "$release_dir/compose.yaml")
 "${compose[@]}" config --quiet
 gzip -dc "$release_dir/image.tar.gz" | docker image load

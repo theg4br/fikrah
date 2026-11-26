@@ -163,3 +163,10 @@ def test_otp_only_leaves_legacy_links_unconfigured(runtime, tmp_path):
     config.generate(args)
     content = (args.output_dir / "app.env").read_text()
     assert "EMAIL_ACTION_BASE_URL=" not in content
+
+
+def test_installer_keeps_postgres_init_accessible_after_root_owned_install():
+    source = (RUNTIME / "install_release.sh").read_text()
+    private_scripts = source.index("-name '*.sh' -exec chmod 0750")
+    public_init = source.index('chmod 0755 "$release_dir/postgres-init.sh"')
+    assert public_init > private_scripts

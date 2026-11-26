@@ -130,3 +130,7 @@ Reference: [Qdrant snapshots](https://qdrant.tech/documentation/operations/snaps
 - Provider latency remains outside VM placement control. No claims of measured response improvement until actual measurements exist.
 - No automatic cross-region recovery, external alerting or HA is configured.
 - Cleanup/deallocation must explicitly account for retained disk, static IP and backup storage; never delete production resources as part of an ordinary deploy.
+
+## Initial deployment recovery note
+
+The first live install exposed a permission defect: root-owned mode 0750 on the nonsecret PostgreSQL init script prevented uid 70 from reading it. The installer now explicitly preserves mode 0755 for that file. Recovery keeps the existing volume and credentials, verifies the app role is absent and the public schema is empty, then runs the original initialization SQL through the existing administrator connection. Never apply this recovery blindly to an established database.
