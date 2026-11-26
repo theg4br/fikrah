@@ -8,7 +8,7 @@ A direct authorized push to `main` triggers the same pipeline. Pull requests, fe
 
 ## CI
 
-`.github/workflows/backend-checks.yml` runs Python 3.12, installs hashed dependencies, lints application and infrastructure code, builds the runtime image, runs the complete suite with disposable PostgreSQL/Redis and Docker, rejects skipped required integration suites, applies migrations and checks API startup/metadata/Celery registrations. Provider credentials are not available to CI. Deployment tooling tests are part of the same suite.
+`.github/workflows/backend-checks.yml` runs Python 3.12, installs hashed dependencies, lints application and infrastructure code, builds the runtime image, runs the complete suite with disposable PostgreSQL/Redis and Docker, rejects skipped required integration suites, applies migrations and checks API startup/metadata/Celery registrations. Artifact actions use Node.js 24 and pinned commit revisions. Provider credentials are not available to CI. Deployment tooling tests are part of the same suite.
 
 Main builds label the image with the exact commit. Only after tests pass is that exact image packaged, checksummed and transferred to the deploy job. It is not rebuilt on the VM. The one-day Actions artifact and a `demo-<commit>` prerelease distribute the credential-free runtime bundle; they are deployment artifacts, not database backups. Published bundles contain neither `.env` nor production data, local UI or work instructions. A rerun refuses to replace an existing release with different bytes.
 
@@ -16,8 +16,9 @@ Main builds label the image with the exact commit. Only after tests pass is that
 
 - GitHub environment: `demo`, branch allowlist `main`.
 - OIDC issuer: `https://token.actions.githubusercontent.com`.
-- Subject: `repo:theg4br/fikrah:environment:demo`.
+- Subject: `repo:theg4br@184538050/fikrah@1450332931:environment:demo`.
 - Audience: `api://AzureADTokenExchange`.
+- The numeric owner/repository IDs are part of this repository's immutable GitHub subject. Verify the actual issuer/subject/audience from the Azure Login claim diagnostics when provisioning; the legacy name-only subject does not match this repository.
 - Entra application: `fikrah-github-deploy`, without a client secret.
 - Custom role: `FIKRAH GitHub VM deploy`, assigned only to `vm-fikrah-prod`, with VM read and Run Command actions. Run Command executes as root; this is privileged deployment access, not a sandbox.
 - Environment secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` (identifiers, no provider/app credentials).
@@ -44,3 +45,5 @@ The [operator runbook](../azure-vm-deployment/operations-runbook.md) covers serv
 - [GitHub push events](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#push)
 - [Azure OIDC authentication](https://learn.microsoft.com/en-us/azure/developer/github/connect-from-azure-openid-connect)
 - [Azure VM Run Command](https://learn.microsoft.com/en-us/azure/virtual-machines/linux/run-command)
+
+The first main run exposed the legacy-subject mismatch before application installation; Azure trust was corrected to the observed immutable subject and the failed deploy job was retried using the existing tested artifact. See [GitHub immutable subjects](https://docs.github.com/en/actions/reference/security/oidc).
