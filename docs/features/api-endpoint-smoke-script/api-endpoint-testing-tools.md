@@ -18,7 +18,7 @@ Configure automated workflow credentials without committing them:
 
 ```bash
 export FIKRAH_SMOKE_EMAIL='verified-test-account@example.com'
-export FIKRAH_SMOKE_PASSWORD='your-test-password-at-least-15-chars'
+export FIKRAH_SMOKE_PASSWORD='your-test-password-at-least-5-chars'
 ```
 
 ## Test Endpoints One at a Time

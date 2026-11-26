@@ -27,12 +27,12 @@ HTTP field names are snake_case. Client models may use local naming conventions 
 
 | Model / use | Fields and constraints |
 | --- | --- |
-| `Credentials` — register/login | `email`: valid email, normalized by trimming/lowercasing. `password`: string, **15–128 characters in current source**, not trimmed. Earlier minimum-five requirement is unresolved; see release gaps. |
+| `Credentials` — register/login | `email`: valid email, normalized by trimming/lowercasing. `password`: string, **5–128 characters**, not trimmed. |
 | `EmailRequest` | `email`: valid email, trimmed/lowercased. |
 | `EmailOtpRequest` | `email`: normalized valid email; `code`: exactly six ASCII digits as a **string**, including leading zeroes. |
-| `ResetPasswordOtpRequest` | `email`, `code` as above; `new_password`: 15–128 characters, not trimmed. |
+| `ResetPasswordOtpRequest` | `email`, `code` as above; `new_password`: 5–128 characters, not trimmed. |
 | `TokenRequest` — legacy verification | `token`: required string, 20–512 characters. |
-| `ResetPasswordRequest` | `token`: 20–512 characters; `new_password`: 15–128 characters in current source. |
+| `ResetPasswordRequest` | `token`: 20–512 characters; `new_password`: 5–128 characters, not trimmed. |
 | `GoogleLoginRequest` | `id_token`: required Google JWT string, 20–8,192 characters. |
 | `RefreshRequest` — refresh/logout | `refresh_token`: required opaque string, 20–512 characters. |
 | `ProjectInput` — create/rename | `name`: string, 1–120 characters; trimmed; whitespace-only rejected. |

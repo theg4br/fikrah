@@ -49,7 +49,7 @@ Saving is immediate; LLM processing is asynchronous. A successful save response 
 
 The handbook documents what the source does, including behavior that differs from earlier requirements. See the [release decisions](integration-acceptance.md#release-decisions-and-known-gaps) before implementing final validation or legacy email callbacks.
 
-In particular, the current source requires passwords of **15–128 characters**, although the user previously requested five as the minimum. The local HTTP email callback exception is absent for legacy links. OTP flows need no callback URL; production app-link destinations for legacy links and platform OAuth identifiers remain undecided. This documentation does not silently change any of those behaviors.
+Passwords accept **5–128 characters** consistently across registration, login and recovery, as requested. The local HTTP email callback exception is absent for legacy links. OTP flows need no callback URL; production app-link destinations for legacy links and platform OAuth identifiers remain undecided. This documentation does not silently change any of those behaviors.
 
 ## Sources and maintenance
 

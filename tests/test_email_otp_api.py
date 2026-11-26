@@ -36,10 +36,10 @@ def emails(monkeypatch):
     return delivered
 
 
-async def register(client, email=EMAIL, *, otp=True):
+async def register(client, email=EMAIL, *, otp=True, password=PASSWORD):
     return await client.post(
         "/v1/auth/register/otp" if otp else "/v1/auth/register",
-        json={"email": email, "password": PASSWORD},
+        json={"email": email, "password": password},
     )
 
 
@@ -175,23 +175,45 @@ async def test_codes_are_isolated_by_account_and_action(auth_client, emails, mon
 
 
 @pytest.mark.asyncio
-async def test_reset_in_one_confirmation_revokes_all_sessions(auth_client, emails):
-    await register(auth_client)
+@pytest.mark.parametrize("password,new_password", [(PASSWORD, NEW_PASSWORD), ("abcde", "vwxyz")])
+async def test_reset_in_one_confirmation_revokes_all_sessions(auth_client, emails, password, new_password):
+    assert (await register(auth_client, password=password)).status_code == 202
     await auth_client.post("/v1/auth/verify-email/otp", json={"email": EMAIL, "code": emails[-1][1]})
-    sessions = [(await auth_client.post("/v1/auth/login", json={"email": EMAIL, "password": PASSWORD})).json() for _ in range(2)]
+    sessions = [(await auth_client.post("/v1/auth/login", json={"email": EMAIL, "password": password})).json() for _ in range(2)]
     await release_cooldown()
     request = await auth_client.post("/v1/auth/password-reset/otp/request", json={"email": EMAIL})
     unknown = await auth_client.post("/v1/auth/password-reset/otp/request", json={"email": "unknown@example.com"})
     assert request.status_code == unknown.status_code == 202
     assert request.json() == unknown.json()
     assert emails[-1][2] == "reset_password_otp"
-    body = {"email": EMAIL, "code": emails[-1][1], "new_password": NEW_PASSWORD}
+    body = {"email": EMAIL, "code": emails[-1][1], "new_password": new_password}
+    for invalid_password in ("abcd", "x" * 129):
+        invalid = await auth_client.post(
+            "/v1/auth/password-reset/otp/confirm", json={**body, "new_password": invalid_password}
+        )
+        assert invalid.status_code == 422
+        async with database() as db:
+            action = await db.scalar(select(EmailActionToken).where(EmailActionToken.purpose == "reset_password"))
+            assert action.used_at is None
+            assert action.failed_attempts == 0
     assert (await auth_client.post("/v1/auth/password-reset/otp/confirm", json=body)).status_code == 200
     assert (await auth_client.post("/v1/auth/password-reset/otp/confirm", json=body)).status_code == 400
     for pair in sessions:
         assert (await auth_client.get("/v1/auth/me", headers={"Authorization": f"Bearer {pair['access_token']}"})).status_code == 401
         assert (await auth_client.post("/v1/auth/refresh", json={"refresh_token": pair["refresh_token"]})).status_code == 401
-    assert (await auth_client.post("/v1/auth/login", json={"email": EMAIL, "password": NEW_PASSWORD})).status_code == 200
+    assert (await auth_client.post("/v1/auth/login", json={"email": EMAIL, "password": new_password})).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_legacy_password_reset_accepts_five_characters(auth_client, emails):
+    assert (await register(auth_client, otp=False, password="abcde")).status_code == 202
+    assert (await auth_client.post("/v1/auth/verify-email", json={"token": emails[-1][1]})).status_code == 200
+    await release_cooldown()
+    assert (await auth_client.post("/v1/auth/password-reset/request", json={"email": EMAIL})).status_code == 202
+    assert (await auth_client.post("/v1/auth/password-reset/confirm", json={
+        "token": emails[-1][1], "new_password": "vwxyz",
+    })).status_code == 200
+    assert (await auth_client.post("/v1/auth/login", json={"email": EMAIL, "password": "vwxyz"})).status_code == 200
 
 
 @pytest.mark.asyncio
