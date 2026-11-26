@@ -6,3 +6,6 @@ __pycache__/
 
 AGENTS.md
 /ci-results.xml
+
+# Local Azure planning and deployment state can contain private configuration.
+.copilot-azure/
