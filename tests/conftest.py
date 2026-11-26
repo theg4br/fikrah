@@ -1,16 +1,23 @@
 """External-service substitutes and opt-in isolated PostgreSQL test schemas."""
 
 import os
+from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine
 from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session
+from sqlalchemy.pool import StaticPool
 from sqlalchemy.schema import CreateSchema, DropSchema
 
 from app.db.base import Base
+from app.db.session import get_db_session as database_dependency
+from app.main import app as fastapi_app
 from app.models import Note, NoteProcessingJob, Project, User
 
 
@@ -76,3 +83,30 @@ def postgres_case(postgres_engine):
         session.commit()
         ids = (user.id, project.id, note.id, job.id)
     return postgres_engine, ids
+
+
+@pytest_asyncio.fixture
+async def auth_client(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[AsyncClient]:
+    monkeypatch.setenv(
+        "FIKRAH_JWT_SECRET", "test-signing-secret-that-is-at-least-32-characters"
+    )
+    engine = create_async_engine(
+        "sqlite+aiosqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+
+    async def override_session() -> AsyncIterator:
+        async with sessions() as session:
+            yield session
+
+    fastapi_app.dependency_overrides[database_dependency] = override_session
+    async with AsyncClient(
+        transport=ASGITransport(app=fastapi_app), base_url="http://test"
+    ) as client:
+        yield client
+    fastapi_app.dependency_overrides.clear()
+    await engine.dispose()

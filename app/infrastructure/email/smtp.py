@@ -32,6 +32,10 @@ ACTION_EMAILS = {
         "text_action": "Reset your FIKRAH password",
     },
 }
+OTP_EMAILS = {
+    "verify_email_otp": ("Verify your FIKRAH email", "Verify your email", "finish setting up your account"),
+    "reset_password_otp": ("Reset your FIKRAH password", "Reset your password", "reset your password"),
+}
 
 
 def _add_html_alternative(
@@ -83,6 +87,9 @@ async def _send(message: EmailMessage) -> None:
 
 
 async def send_action_email(recipient: str, token: str, purpose: str) -> None:
+    if purpose in OTP_EMAILS:
+        await _send_otp_email(recipient, token, purpose)
+        return
     try:
         email_action = ACTION_EMAILS[purpose]
     except KeyError as exc:
@@ -117,6 +124,25 @@ async def send_action_email(recipient: str, token: str, purpose: str) -> None:
         TemplateError,
         aiosmtplib.SMTPException,
     ) as error:
+        raise EmailDeliveryError from error
+
+
+async def _send_otp_email(recipient: str, code: str, purpose: str) -> None:
+    try:
+        if len(code) != 6 or not code.isascii() or not code.isdecimal():
+            raise ValueError("Invalid email code format")
+        subject, heading, action = OTP_EMAILS[purpose]
+        message = EmailMessage()
+        message["To"] = recipient
+        message["Subject"] = f"FIKRAH — {subject}"
+        message.set_content(
+            f"Your FIKRAH code is: {code}\n\n"
+            f"Enter it in FIKRAH to {action}. It expires in 10 minutes and can be used once.\n\n"
+            "Never share this code. If you did not request it, ignore this email."
+        )
+        _add_html_alternative(message, "otp.html", code=code, heading=heading, action=action)
+        await _send(message)
+    except (RuntimeError, OSError, ValueError, TemplateError, aiosmtplib.SMTPException) as error:
         raise EmailDeliveryError from error
 
 

@@ -11,18 +11,22 @@ from app.contracts.auth import (
     AuthMessage,
     AuthTokenPair,
     EmailAddress,
+    EmailOtpConfirmation,
     EmailPassword,
     GoogleIdentityToken,
     PasswordReset,
+    PasswordResetOtp,
     RefreshToken,
 )
 from app.schemas.auth import (
     AuthTokens,
     Credentials,
+    EmailOtpRequest,
     EmailRequest,
     GoogleLoginRequest,
     Message,
     RefreshRequest,
+    ResetPasswordOtpRequest,
     ResetPasswordRequest,
     TokenRequest,
     UserView,
@@ -36,6 +40,7 @@ Result = TypeVar("Result")
 AUTH_FAILURE_STATUSES = {
     AuthFailure.INVALID_ACCESS_TOKEN: 401,
     AuthFailure.INVALID_ACTION_TOKEN: 400,
+    AuthFailure.INVALID_EMAIL_OTP: 400,
     AuthFailure.INVALID_CREDENTIALS: 401,
     AuthFailure.EMAIL_NOT_VERIFIED: 403,
     AuthFailure.INVALID_GOOGLE_IDENTITY: 401,
@@ -89,6 +94,36 @@ async def register(
             EmailPassword(email=str(body.email), password=body.password), db
         )
     )
+
+
+@router.post("/register/otp", response_model=Message, status_code=status.HTTP_202_ACCEPTED)
+async def register_with_otp(
+    body: Credentials, db: Db, service: AuthServiceDependency
+) -> Message:
+    """Create an account and email a six-digit activation code; then verify and log in."""
+    return await _message(service.register(
+        EmailPassword(email=str(body.email), password=body.password), db, use_otp=True
+    ))
+
+
+@router.post("/verify-email/otp", response_model=Message, responses={400: {"description": "Invalid, expired, used or exhausted code"}})
+async def verify_email_otp(
+    body: EmailOtpRequest, db: Db, service: AuthServiceDependency
+) -> Message:
+    """Verify mailbox ownership using email and code; does not issue session tokens."""
+    return await _message(service.verify_email_otp(
+        EmailOtpConfirmation(email=str(body.email), code=body.code), db
+    ))
+
+
+@router.post("/resend-verification/otp", response_model=Message, status_code=202)
+async def resend_verification_otp(
+    body: EmailRequest, db: Db, service: AuthServiceDependency
+) -> Message:
+    """Request an activation code; generic acknowledgment also covers send suppression."""
+    return await _message(service.resend_verification(
+        EmailAddress(email=str(body.email)), db, use_otp=True
+    ))
 
 
 @router.post("/verify-email", response_model=Message)
@@ -171,6 +206,26 @@ async def confirm_password_reset(
             PasswordReset(token=body.token, new_password=body.new_password), db
         )
     )
+
+
+@router.post("/password-reset/otp/request", response_model=Message, status_code=202)
+async def request_password_reset_otp(
+    body: EmailRequest, db: Db, service: AuthServiceDependency
+) -> Message:
+    """Email a reset code for an eligible account without disclosing account existence."""
+    return await _message(service.request_password_reset(
+        EmailAddress(email=str(body.email)), db, use_otp=True
+    ))
+
+
+@router.post("/password-reset/otp/confirm", response_model=Message, responses={400: {"description": "Invalid, expired, used or exhausted code"}, 429: {"description": "Password processing is busy"}})
+async def confirm_password_reset_otp(
+    body: ResetPasswordOtpRequest, db: Db, service: AuthServiceDependency
+) -> Message:
+    """Consume the reset code and change the password in one request; revoke all sessions."""
+    return await _message(service.confirm_password_reset_otp(
+        PasswordResetOtp(email=str(body.email), code=body.code, new_password=body.new_password), db
+    ))
 
 
 @router.post("/refresh", response_model=AuthTokens)

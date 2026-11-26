@@ -177,3 +177,39 @@ async def test_missing_logo_fails_delivery_instead_of_sending_broken_branding(
     with pytest.raises(EmailDeliveryError):
         await send_welcome_email("person@example.test")
     send.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("purpose", ["verify_email_otp", "reset_password_otp"])
+async def test_otp_email_has_code_and_branding_without_action_url(monkeypatch, purpose):
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.test")
+    monkeypatch.setenv("SMTP_FROM", "FIKRAH <noreply@example.test>")
+    monkeypatch.delenv("EMAIL_ACTION_BASE_URL", raising=False)
+    sent = []
+
+    async def capture(message, **_kwargs):
+        sent.append(message)
+
+    monkeypatch.setattr("app.infrastructure.email.smtp.aiosmtplib.send", capture)
+    await send_action_email("person@example.test", "000042", purpose)
+    message = sent[0]
+    plain = message.get_body(preferencelist=("plain",)).get_content()
+    html = message.get_body(preferencelist=("html",)).get_content()
+    assert "000042" in plain and "000042" in html
+    assert "10 minutes" in plain and "10 minutes" in html
+    assert "000042" not in message["Subject"]
+    assert "token=" not in html and "href=" not in html
+    assert "cid:fikrah-logo@fikrah" in html
+
+
+@pytest.mark.asyncio
+async def test_otp_email_never_sends_invalid_code(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from app.services.auth_ports import EmailDeliveryError
+
+    send = AsyncMock()
+    monkeypatch.setattr("app.infrastructure.email.smtp.aiosmtplib.send", send)
+    with pytest.raises(EmailDeliveryError):
+        await send_action_email("person@example.test", "<invalid>", "verify_email_otp")
+    send.assert_not_called()

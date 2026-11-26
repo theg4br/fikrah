@@ -6,6 +6,7 @@ from enum import StrEnum
 class AuthFailure(StrEnum):
     INVALID_ACCESS_TOKEN = "invalid_access_token"
     INVALID_ACTION_TOKEN = "invalid_action_token"
+    INVALID_EMAIL_OTP = "invalid_email_otp"
     INVALID_CREDENTIALS = "invalid_credentials"
     EMAIL_NOT_VERIFIED = "email_not_verified"
     INVALID_GOOGLE_IDENTITY = "invalid_google_identity"
