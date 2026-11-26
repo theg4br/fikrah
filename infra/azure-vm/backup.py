@@ -129,8 +129,8 @@ def capture(release: Path, destination: Path, keep_stopped: bool) -> Path:
     with tempfile.TemporaryDirectory(prefix="capture-", dir=destination) as temporary:
         stage = Path(temporary)
         try:
-            if running:
-                compose(release, "stop", "--timeout", "300", *running)
+            # Include restart-looping writers, which could otherwise return mid-capture.
+            compose(release, "stop", "--timeout", "300", *WRITERS)
             with (stage / "postgres.dump").open("xb") as output:
                 compose(release, "exec", "-T", "postgres", "pg_dump", "-U", "fikrah_admin", "-d", "fikrah", "-Fc", stdout=output)
             with (stage / "postgres-roles.sql").open("xb") as output:

@@ -134,3 +134,5 @@ Reference: [Qdrant snapshots](https://qdrant.tech/documentation/operations/snaps
 ## Initial deployment recovery note
 
 The first live install exposed a permission defect: root-owned mode 0750 on the nonsecret PostgreSQL init script prevented uid 70 from reading it. The installer now explicitly preserves mode 0755 for that file. Recovery keeps the existing volume and credentials, verifies the app role is absent and the public schema is empty, then runs the original initialization SQL through the existing administrator connection. Never apply this recovery blindly to an established database.
+
+Live startup measurements showed roughly 180 MiB per initial Celery process. The scheduler's original 128 MiB cap caused OOM, so scheduler/dispatch now have 256 MiB, email/vector 320 MiB, and scheduler PID/schedule files are explicitly under `/tmp`. PostgreSQL/Qdrant caps are 384/512 MiB; the normal running-service cap total is 3360 MiB, leaving host headroom on the 4 GiB VM. These are measured startup corrections, not a sustained workload capacity guarantee. Backup stop covers restart-looping writers as well as running ones.
