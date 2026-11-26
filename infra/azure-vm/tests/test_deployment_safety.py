@@ -174,3 +174,9 @@ def test_installer_keeps_postgres_init_accessible_after_root_owned_install():
     private_scripts = source.index("-name '*.sh' -exec chmod 0750")
     public_init = source.index('chmod 0755 "$release_dir/postgres-init.sh"')
     assert public_init > private_scripts
+
+
+def test_proxy_validation_does_not_reuse_the_live_static_address():
+    source = (RUNTIME / "install_release.sh").read_text()
+    assert 'run --rm --no-deps -T proxy' not in source
+    assert "'docker', 'run', '--rm', '--network', 'none'" in source

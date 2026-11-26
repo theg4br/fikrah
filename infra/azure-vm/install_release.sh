@@ -47,7 +47,21 @@ assert image['Config']['Labels']['org.opencontainers.image.revision'] == manifes
 PY
 "${compose[@]}" pull --quiet postgres redis qdrant proxy
 # Validates proxy configuration without changing live services.
-"${compose[@]}" run --rm --no-deps -T proxy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+proxy_image=$("${compose[@]}" config --images proxy)
+python3 - "$release_dir" "$proxy_image" <<'PROXY'
+import pathlib, shlex, subprocess, sys
+root = pathlib.Path(sys.argv[1])
+values = dict(shlex.split(line)[0].split('=', 1) for line in pathlib.Path('/etc/fikrah/compose.env').read_text().splitlines() if line.strip())
+subprocess.run([
+    'docker', 'run', '--rm', '--network', 'none', '--read-only',
+    '--tmpfs', '/tmp', '--tmpfs', '/data', '--tmpfs', '/config',
+    '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges:true',
+    '--env', 'FIKRAH_HOSTNAME=' + values['FIKRAH_HOSTNAME'],
+    '--env', 'ACME_EMAIL=' + values['ACME_EMAIL'],
+    '--volume', str(root / 'Caddyfile') + ':/etc/caddy/Caddyfile:ro',
+    sys.argv[2], 'caddy', 'validate', '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile',
+], check=True)
+PROXY
 # On error, do NOT automatically restart old code against a possibly advanced DB.
 trap 'echo "Release failed. Writers may remain stopped. Inspect migration state and protected backup receipts before recovery; no automatic DB downgrade was attempted." >&2' ERR
 if [[ -L /opt/fikrah/current ]]; then
