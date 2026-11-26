@@ -97,8 +97,8 @@ def test_production_compose_boundaries_and_quoting(runtime):
     assert "-h 127.0.0.1" in services["postgres"]["healthcheck"]["test"][1]
     assert "--pidfile=/tmp/celerybeat.pid" in services["scheduler"]["command"]
     for name in ("scheduler", "dispatcher-worker", "email-worker", "vector-worker"):
-        assert services[name]["mem_limit"] >= 256 * 1024 * 1024
-    assert sum(service["mem_limit"] for name, service in services.items() if name != "migrate") <= 3360 * 1024 * 1024
+        assert int(services[name]["mem_limit"]) >= 256 * 1024 * 1024
+    assert sum(int(service["mem_limit"]) for name, service in services.items() if name != "migrate") <= 3360 * 1024 * 1024
     for name in ("api", "worker", "dispatcher-worker", "email-worker", "vector-worker", "scheduler"):
         assert services[name]["read_only"] is True
         assert services[name]["cap_drop"] == ["ALL"]
