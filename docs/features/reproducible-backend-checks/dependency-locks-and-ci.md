@@ -41,8 +41,8 @@ No dependency update changes application APIs or deploys an existing environment
 
 ## CI execution
 
-`.github/workflows/backend-checks.yml` runs on feature pushes, pull requests to
-`dev`, pushes to `dev`, and manual dispatch. It uses pinned action revisions and
+`.github/workflows/backend-checks.yml` runs on pull requests to `dev`/`main`, pushes to
+`dev`/`main`, and manual dispatch. Feature pushes are checked through their pull requests, avoiding duplicate runs. It uses pinned action revisions and
 read-only repository permissions. The job:
 
 1. Installs the hashed development lock on Python 3.12.
@@ -64,6 +64,4 @@ Local equivalent after supplying isolated test-service URLs:
 .venv/bin/python scripts/check_ci_results.py ci-results.xml
 ```
 
-The workflow does not configure repository branch protection. Making this check
-a required merge gate in GitHub settings is a separate repository administration
-decision. Base-image/service tags retain their existing version policy.
+The `backend` check is the required branch protection gate. Only passing `main` push builds deploy; see [continuous delivery](../continuous-delivery/main-only-deployment.md).
