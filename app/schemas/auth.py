@@ -28,6 +28,14 @@ class TokenRequest(BaseModel):
     token: str = Field(min_length=20, max_length=512)
 
 
+class EmailOtpRequest(EmailRequest):
+    code: str = Field(pattern=r"^[0-9]{6}$", min_length=6, max_length=6)
+
+
+class ResetPasswordOtpRequest(EmailOtpRequest):
+    new_password: str = Field(min_length=15, max_length=128)
+
+
 class ResetPasswordRequest(TokenRequest):
     new_password: str = Field(min_length=15, max_length=128)
 

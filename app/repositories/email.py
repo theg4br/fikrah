@@ -32,7 +32,7 @@ class EmailOutboxRepository:
                 select(EmailActionToken.id).where(
                     EmailActionToken.token_hash == delivery.token_hash,
                     EmailActionToken.user_id == delivery.user_id,
-                    EmailActionToken.purpose == delivery.purpose,
+                    EmailActionToken.purpose == delivery.purpose.removesuffix("_otp"),
                     EmailActionToken.used_at.is_(None),
                     EmailActionToken.expires_at > now,
                 )

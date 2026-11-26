@@ -20,6 +20,17 @@ class ActionToken:
 
 
 @dataclass(frozen=True, slots=True)
+class EmailOtpConfirmation:
+    email: str
+    code: str
+
+
+@dataclass(frozen=True, slots=True)
+class PasswordResetOtp(EmailOtpConfirmation):
+    new_password: str
+
+
+@dataclass(frozen=True, slots=True)
 class GoogleIdentityToken:
     id_token: str
 

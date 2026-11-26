@@ -1,6 +1,6 @@
 # Endpoint reference
 
-**37 application operations**, matching the [OpenAPI snapshot](openapi.json). Paths are relative to the configured API origin.
+**42 application operations**, matching the [OpenAPI snapshot](openapi.json). Paths are relative to the configured API origin.
 
 Each entry states what the operation does, why/when mobile calls it, its inputs and its returned data. Shared response objects and validation rules are defined once in [Data models and errors](data-models-and-errors.md).
 
@@ -16,6 +16,8 @@ Each entry states what the operation does, why/when mobile calls it, its inputs 
 - Examples use placeholder text/IDs. Copy the **shape**, not example credentials.
 
 ## A. Authentication
+
+New mobile clients should use [OTP activation and recovery](#otp-activation-and-recovery-preferred). Login, Google, refresh/logout/me (A04–A05/A08–A10) are unchanged. A01–A03/A06–A07 retain legacy link behavior temporarily.
 
 ### A01 — POST /v1/auth/register
 
@@ -140,6 +142,77 @@ Each entry states what the operation does, why/when mobile calls it, its inputs 
 - **Input:** Bearer access token; no body/query.
 - **Success:** `200` → `UserView`.
 - **Next:** P01; handle `401` through the session coordinator.
+
+### OTP activation and recovery (preferred)
+
+These five public JSON operations require no Bearer token or callback URL. They return the existing `Message` shape, never session tokens or the code itself. Codes last **10 minutes from issuance**, are single-use and accept at most **five wrong guesses**. Wrong, expired, used/exhausted codes and unknown accounts return the same `400` detail: `Invalid or expired code`.
+
+The 60-second cooldown and five-send/hour/address cap are shared across OTP/link activation and recovery. Generic `202` does not reveal account existence or whether a send was suppressed. A newly issued action retires earlier open codes/links for that purpose; a suppressed request leaves the current action intact.
+
+### A11 — POST /v1/auth/register/otp
+
+- **Purpose:** create an email/password account and General project; enqueue activation code and welcome email.
+- **When/why:** submit sign-up, then show code entry for the same email.
+- **Input:** `Credentials`; password policy is unchanged.
+- **Success:** `202` → generic `Message`, identical to A01; no automatic login.
+- **Additional failures:** `429` password-work saturation.
+- **Next:** A12, optionally A13, then A04.
+
+```json
+{"email":"reader@example.com","password":"example-only-long-passphrase"}
+```
+
+Existing addresses retain generic registration behavior; this route does not resend an existing account's code or replace its password. Use A13 when verification is needed.
+
+### A12 — POST /v1/auth/verify-email/otp
+
+- **Purpose:** establish mailbox ownership using a code.
+- **When/why:** user submits the activation code read from email.
+- **Input:** `EmailOtpRequest`; code is a string, preserving leading zeroes.
+- **Success:** `200` → `{"message":"Email verified"}`.
+- **Additional failures:** generic `400` described above; wrong guesses persist even on failure. Malformed codes return `422`, do not count as guesses and cannot activate an account.
+- **Next:** A04; verification is not passwordless login.
+
+```json
+{"email":"reader@example.com","code":"000042"}
+```
+
+### A13 — POST /v1/auth/resend-verification/otp
+
+- **Purpose:** request a fresh activation code for an unverified account.
+- **When/why:** resend from code entry, or recovery from an unverified login `403`.
+- **Input:** `EmailRequest`.
+- **Success:** `202` → generic `Message`, identical to A03; sending can be suppressed. Already verified accounts do not receive another activation code.
+- **Next:** A12.
+
+```json
+{"email":"reader@example.com"}
+```
+
+### A14 — POST /v1/auth/password-reset/otp/request
+
+- **Purpose:** request a recovery code for an eligible password account.
+- **When/why:** submit “Forgot password,” or resend the recovery code.
+- **Input:** `EmailRequest`.
+- **Success:** `202` → generic `Message`, identical to A06, including unknown and Google-only accounts.
+- **Next:** A15 with the emailed code and new password.
+
+```json
+{"email":"reader@example.com"}
+```
+
+### A15 — POST /v1/auth/password-reset/otp/confirm
+
+- **Purpose:** consume the code and replace the password in one atomic confirmation.
+- **When/why:** submit code and new password. No separate code-validation request/ticket is needed.
+- **Input:** `ResetPasswordOtpRequest`.
+- **Success:** `200` → `{"message":"Password reset successfully"}`; all access/refresh session families are revoked immediately.
+- **Additional failures:** generic `400`; `429` password-work saturation; `422` malformed code/password. A server failure rolls back code consumption with the password change; the code can be retried within its lifetime.
+- **Next:** clear local credentials and use A04. No replacement session is issued. Reset does not independently verify an unverified account.
+
+```json
+{"email":"reader@example.com","code":"000042","new_password":"another-example-only-passphrase"}
+```
 
 ## P. Projects
 
@@ -476,6 +549,6 @@ Client disconnect does not prove absence of a committed exchange. Reload C03. A 
 
 ## Documentation utilities
 
-FastAPI also exposes `GET /docs`, `GET /redoc` and `GET /openapi.json`. They are documentation utilities, excluded from the 37 application-operation count. Their availability is not an auth/session or feature-readiness check.
+FastAPI also exposes `GET /docs`, `GET /redoc` and `GET /openapi.json`. They are documentation utilities, excluded from the 42 application-operation count. Their availability is not an auth/session or feature-readiness check.
 
 For client-side orchestration, code examples and recovery rules continue to [Flutter integration](flutter-integration.md).

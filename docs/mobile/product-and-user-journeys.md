@@ -13,7 +13,7 @@ This is a personal workspace. There are no shared workspaces, collaborator invit
 | Area | Flutter/mobile | Backend |
 | --- | --- | --- |
 | Presentation | Screens, navigation, drafts, empty/loading/error states, graph layout, localization. | Explicit HTTP contracts and server authorization. |
-| Identity | Native Google flow, secure session storage, opening email links. | Password/Google verification, FIKRAH tokens, session revocation and account isolation. |
+| Identity | Native Google flow, secure session storage, code entry and optional legacy email links. | Password/Google verification, FIKRAH tokens, session revocation and account isolation. |
 | Capture | Typing, microphone permissions/recording, local PDF files, user review of transcripts. | Accept text notes; optionally transcribe an uploaded recording. |
 | Notes | Select project, submit edits, display processing state/proposals. | IDs, timestamps, persistence, processing generations, title generation and background processing. |
 | Knowledge | Display concepts, graph nodes/edges and citations; open referenced notes. | Concepts, connections, project-scoped semantic retrieval and grounded answers. |
@@ -41,11 +41,11 @@ The architecture is a layered modular backend: HTTP routes/schemas → services 
 
 **As a new user**, I want a private account and a default knowledge space.
 
-1. Submit `POST /v1/auth/register`.
+1. Submit `POST /v1/auth/register/otp`.
 2. On `202`, show a check-email state, not a logged-in workspace.
 3. Registration creates a verification intent and a welcome email for a new eligible account. Delivery can be deferred.
-4. Open the verification link and extract its token using the agreed callback integration.
-5. Submit `POST /v1/auth/verify-email`.
+4. Show a six-digit code entry screen; the user reads the code from email.
+5. Submit email and code to `POST /v1/auth/verify-email/otp`.
 6. On `200`, return to login. Verification does not issue access/refresh tokens.
 7. Submit login, then bootstrap the workspace.
 
@@ -53,7 +53,7 @@ The architecture is a layered modular backend: HTTP routes/schemas → services 
 
 ### US-02 — Resend verification
 
-From the check-email screen, call `POST /v1/auth/resend-verification`. Show the same generic acknowledgment on `202`. The backend applies a 60-second cooldown and five sends per address/hour; it can suppress sending without changing that generic success response. A new action token retires previous open tokens of the same purpose.
+From the code-entry screen, call `POST /v1/auth/resend-verification/otp`. Show the same generic acknowledgment on `202`. The backend applies a 60-second cooldown and five sends per address/hour; it can suppress sending without changing that generic success response. A newly issued code retires previous open codes/links for that purpose. Codes expire after 10 minutes, are single-use and stop accepting submissions after five wrong guesses.
 
 **Acceptance:** the screen cannot promise that every press generated a new email.
 
@@ -80,13 +80,15 @@ New linking/account creation requires a verified Gmail address or verified Works
 
 ### US-05 — Recover a password
 
-1. Request `POST /v1/auth/password-reset/request` from the recovery screen.
+1. Request `POST /v1/auth/password-reset/otp/request` from the recovery screen.
 2. Show its generic `202` acknowledgment.
-3. Open the email action link and present a new-password form.
-4. Submit token and new password to `POST /v1/auth/password-reset/confirm`.
+3. Present code entry and a new-password form.
+4. Submit email, code and new password together to `POST /v1/auth/password-reset/otp/confirm`. No separate code-validation request is required.
 5. Clear existing local credentials and ask the user to log in again.
 
-Reset tokens last one hour and are single-use. A successful reset revokes the user's existing session families, including current access tokens. Google-only accounts do not currently acquire a password via the reset-request route.
+Reset codes last 10 minutes, are single-use and allow five wrong guesses. A successful reset revokes the user's existing session families, including current access tokens. Google-only accounts do not currently acquire a password via the reset-request route.
+
+Legacy registration, verification and reset links remain available for older clients; see the endpoint reference. New mobile integration should use OTP, without waiting for production app-link setup.
 
 ### US-06 — Log out
 

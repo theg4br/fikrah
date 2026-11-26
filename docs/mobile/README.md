@@ -2,7 +2,7 @@
 
 This is the starting point for the Flutter team. It describes the **implemented backend contract**, the user journeys it supports, and the decisions still needed before release.
 
-**Contract baseline:** application source at `5dc942037b6d5b540ede9a20371ec74f88f16840` on `dev`, reviewed on 23 November 2026. Documentation changes do not imply that an existing running server has been upgraded to this revision.
+**Contract baseline:** email OTP activation/recovery update, reviewed on 26 November 2026; requires migration `20261126_01`. Documentation changes do not imply that an existing running server has been upgraded to this revision.
 
 ## Read in this order
 
@@ -10,7 +10,7 @@ This is the starting point for the Flutter team. It describes the **implemented 
 | --- | --- |
 | [Product and user journeys](product-and-user-journeys.md) | What FIKRAH does, ownership boundaries, each user story and its call sequence. |
 | [Data models and errors](data-models-and-errors.md) | Exact field names, nullability, limits, timestamps, status codes and client recovery behavior. |
-| [Endpoint reference](api-reference.md) | Every one of the 37 application operations: purpose, trigger, request, success result and additional failure cases. |
+| [Endpoint reference](api-reference.md) | Every one of the 42 application operations: purpose, trigger, request, success result and additional failure cases. |
 | [Flutter integration](flutter-integration.md) | Base URL setup, session/refresh coordination, idempotency, polling, streaming, audio upload and local state. |
 | [Integration acceptance and open decisions](integration-acceptance.md) | A practical handover checklist, known gaps and decisions that must not be guessed. |
 | [OpenAPI snapshot](openapi.json) | Importable schema generated from this source revision; useful for API clients and model generation. |
@@ -20,7 +20,7 @@ Field definitions and example response objects live in the data-model document. 
 ## First successful session
 
 1. Obtain a reachable backend base URL from the backend team. No public production URL is assigned by this handbook.
-2. Register, open the verification email, submit its action token, then log in; or obtain a Google ID token and exchange it.
+2. Register using `/v1/auth/register/otp`, enter the emailed six-digit code at `/v1/auth/verify-email/otp`, then log in; or obtain a Google ID token and exchange it.
 3. Store the returned FIKRAH access/refresh pair securely.
 4. Fetch `GET /v1/auth/me` and `GET /v1/projects`.
 5. Select the project with `is_general: true`; save its ID, not its name.
@@ -32,6 +32,7 @@ Saving is immediate; LLM processing is asynchronous. A successful save response 
 
 ## Rules the mobile client must preserve
 
+- Email OTP is the preferred activation/recovery flow; password/Google login remains unchanged. Legacy email-link routes are retained temporarily.
 - Native Flutter calls the backend directly using JSON and `Authorization: Bearer <access_token>`. The local web tester's cookies/proxy are not part of the mobile protocol.
 - The backend determines the user from the token. Do not send `user_id`, database credentials or model-provider keys.
 - Every note belongs to one selected project. Start in General, identified by `is_general`.
@@ -46,9 +47,9 @@ Saving is immediate; LLM processing is asynchronous. A successful save response 
 
 ## Important current integration gaps
 
-The handbook documents what the source does, including behavior that differs from earlier requirements. See the [release decisions](integration-acceptance.md#release-decisions-and-known-gaps) before implementing final validation or email callbacks.
+The handbook documents what the source does, including behavior that differs from earlier requirements. See the [release decisions](integration-acceptance.md#release-decisions-and-known-gaps) before implementing final validation or legacy email callbacks.
 
-In particular, the current source requires passwords of **15–128 characters**, although the user previously requested five as the minimum. The local HTTP email callback exception is absent in this revision. Production app-link destinations and platform OAuth identifiers are not finalized. This documentation does not silently change any of those behaviors.
+In particular, the current source requires passwords of **15–128 characters**, although the user previously requested five as the minimum. The local HTTP email callback exception is absent for legacy links. OTP flows need no callback URL; production app-link destinations for legacy links and platform OAuth identifiers remain undecided. This documentation does not silently change any of those behaviors.
 
 ## Sources and maintenance
 

@@ -13,9 +13,11 @@ from app.contracts.auth import (
     AuthMessage,
     AuthTokenPair,
     EmailAddress,
+    EmailOtpConfirmation,
     EmailPassword,
     GoogleIdentityToken,
     PasswordReset,
+    PasswordResetOtp,
     RefreshToken,
 )
 from app.core.config import get_settings
@@ -42,6 +44,7 @@ from app.services.auth_ports import (
     GoogleVerificationUnavailable,
 )
 from app.services.email_delivery_service import EmailDeliveryService
+from app.services.email_otp_service import EmailOtpService
 from app.services.request_budgets import RequestBudgetExceeded, RequestBudgetUnavailable
 
 logger = logging.getLogger(__name__)
@@ -151,23 +154,37 @@ class AuthService:
         self._reveal_email_token = reveal_email_token
         self._email_repository = EmailOutboxRepository()
         self._repository = repository or AuthRepository()
+        self._email_otp = EmailOtpService(self._repository)
         self._login_budget = login_budget
         self._run_google_verification = run_google_verification
 
     async def _queue_email(
-        self, db: AsyncSession, user: User, purpose: str, token: str | None = None
+        self, db: AsyncSession, user: User, purpose: str, token: str | None = None,
+        *, action_hash: str | None = None,
     ) -> UUID:
         delivery = EmailDelivery(
             user_id=user.id,
             recipient=user.email,
             purpose=purpose,
-            token_hash=hash_opaque_token(token) if token is not None else None,
+            token_hash=action_hash or (hash_opaque_token(token) if token is not None else None),
             encrypted_token=self._protect_email_token(token)
             if token is not None
             else None,
         )
         await self._email_repository.add(db, delivery)
         return delivery.id
+
+    async def _queue_action_email(
+        self, db: AsyncSession, user: User, purpose: str, *, use_otp: bool
+    ) -> UUID:
+        if use_otp:
+            issued = await self._email_otp.issue(db, user, purpose)
+            return await self._queue_email(
+                db, user, f"{purpose}_otp", issued.code, action_hash=issued.token_hash
+            )
+        lifetime = timedelta(hours=24 if purpose == "verify_email" else 1)
+        token = await _new_action_token(db, user, purpose, lifetime, self._repository)
+        return await self._queue_email(db, user, purpose, token)
 
     async def _deliver_emails(self, db: AsyncSession, delivery_ids: list[UUID]) -> None:
         sender = EmailDeliveryService(
@@ -224,7 +241,9 @@ class AuthService:
             raise AuthServiceError(AuthFailure.INVALID_ACTION_TOKEN, message)
         return action, user
 
-    async def register(self, body: EmailPassword, db: AsyncSession) -> AuthMessage:
+    async def register(
+        self, body: EmailPassword, db: AsyncSession, *, use_otp: bool = False
+    ) -> AuthMessage:
         delivery_ids: list[UUID] = []
         async with db.begin():
             await self._repository.lock_account_creation(db, body.email)
@@ -242,11 +261,8 @@ class AuthService:
                 self._repository.add_project(
                     db, Project(user_id=user.id, name="General", is_general=True)
                 )
-                raw_token = await _new_action_token(
-                    db, user, "verify_email", timedelta(hours=24), self._repository
-                )
                 delivery_ids.append(
-                    await self._queue_email(db, user, "verify_email", raw_token)
+                    await self._queue_action_email(db, user, "verify_email", use_otp=use_otp)
                 )
                 delivery_ids.append(await self._queue_email(db, user, "welcome"))
         await self._deliver_emails(db, delivery_ids)
@@ -262,10 +278,23 @@ class AuthService:
             )
             action.used_at = now
             user.email_verified_at = now
+            await self._repository.retire_open_action_tokens(db, user.id, "verify_email", now)
+        return AuthMessage(message="Email verified")
+
+    async def verify_email_otp(
+        self, body: EmailOtpConfirmation, db: AsyncSession
+    ) -> AuthMessage:
+        async with db.begin():
+            user = await self._email_otp.consume(db, body.email, body.code, "verify_email")
+            if user is not None:
+                user.email_verified_at = datetime.now(timezone.utc)
+        # Raise after commit: rejected guesses must not roll back their counter.
+        if user is None:
+            raise AuthServiceError(AuthFailure.INVALID_EMAIL_OTP, "Invalid or expired code")
         return AuthMessage(message="Email verified")
 
     async def resend_verification(
-        self, body: EmailAddress, db: AsyncSession
+        self, body: EmailAddress, db: AsyncSession, *, use_otp: bool = False
     ) -> AuthMessage:
         delivery_ids: list[UUID] = []
         async with db.begin():
@@ -275,11 +304,8 @@ class AuthService:
                 and user.email_verified_at is None
                 and await _send_limit_available(db, body.email, self._repository)
             ):
-                raw_token = await _new_action_token(
-                    db, user, "verify_email", timedelta(hours=24), self._repository
-                )
                 delivery_ids.append(
-                    await self._queue_email(db, user, "verify_email", raw_token)
+                    await self._queue_action_email(db, user, "verify_email", use_otp=use_otp)
                 )
         await self._deliver_emails(db, delivery_ids)
         return AuthMessage(
@@ -407,7 +433,7 @@ class AuthService:
         return tokens
 
     async def request_password_reset(
-        self, body: EmailAddress, db: AsyncSession
+        self, body: EmailAddress, db: AsyncSession, *, use_otp: bool = False
     ) -> AuthMessage:
         delivery_ids: list[UUID] = []
         async with db.begin():
@@ -417,11 +443,8 @@ class AuthService:
                 and user.password_hash is not None
                 and await _send_limit_available(db, body.email, self._repository)
             ):
-                raw_token = await _new_action_token(
-                    db, user, "reset_password", timedelta(hours=1), self._repository
-                )
                 delivery_ids.append(
-                    await self._queue_email(db, user, "reset_password", raw_token)
+                    await self._queue_action_email(db, user, "reset_password", use_otp=use_otp)
                 )
         await self._deliver_emails(db, delivery_ids)
         return AuthMessage(
@@ -439,6 +462,23 @@ class AuthService:
             action.used_at = now
             user.password_hash = await _password_work(hash_password, body.new_password)
             await self._repository.revoke_active_refresh_sessions(db, user.id, now)
+            await self._repository.retire_open_action_tokens(db, user.id, "reset_password", now)
+        return AuthMessage(message="Password reset successfully")
+
+    async def confirm_password_reset_otp(
+        self, body: PasswordResetOtp, db: AsyncSession
+    ) -> AuthMessage:
+        async with db.begin():
+            user = await self._email_otp.consume(db, body.email, body.code, "reset_password")
+            if user is not None and user.password_hash is not None:
+                user.password_hash = await _password_work(hash_password, body.new_password)
+                await self._repository.revoke_active_refresh_sessions(
+                    db, user.id, datetime.now(timezone.utc)
+                )
+            else:
+                user = None
+        if user is None:
+            raise AuthServiceError(AuthFailure.INVALID_EMAIL_OTP, "Invalid or expired code")
         return AuthMessage(message="Password reset successfully")
 
     async def refresh(self, body: RefreshToken, db: AsyncSession) -> AuthTokenPair:

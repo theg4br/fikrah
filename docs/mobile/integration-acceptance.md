@@ -7,7 +7,7 @@ This is a handover checklist, not a claim that these scenarios were executed wit
 | Item | Backend/platform owner supplies | Mobile team confirms |
 | --- | --- | --- |
 | API access | Reachable base origin, running source revision and environment limitations. | Device/emulator reaches the API directly. |
-| Account flows | Working delivery setup and agreed verification/reset action routing. | Cold/warm app opens the intended screen and sends the token to the correct JSON route. |
+| Account flows | Working SMTP; six-digit activation/recovery code entry. Legacy links additionally need agreed action routing. | OTP flows work without callbacks; legacy cold/warm app opens submit the token to the correct route. |
 | Google | Configured backend audience and permitted Google account policy. | Native ID-token audience and platform registrations match. |
 | Schemas | Current OpenAPI plus this handbook's runtime error guidance. | DTOs preserve nulls, snake_case fields and UTC instants. |
 | Sessions | Rotation/replay, expiry and revocation behavior. | Secure token storage, one refresh coordinator, account-safe cache cleanup. |
@@ -35,7 +35,11 @@ Operation IDs refer to the [endpoint reference](api-reference.md).
 
 | Scenario | Operations | Expected result |
 | --- | --- | --- |
-| New password account | A01, A02, A04, A10, P01 | Register 202 without tokens; unverified login 403; verification 200; login token pair; one protected General project. |
+| OTP registration/activation | A11, A12, A04, A10, P01 | Generic 202; six-digit code entry preserving leading zeroes; activation 200 without tokens; password login and General bootstrap. |
+| OTP failure/replay/expiry | A12, A15 | Generic 400; five wrong guesses exhaust code; expired/used code rejected; no refresh loop. |
+| OTP resend and compatibility | A13, A14 | 60-second cooldown and five sends/hour/address shared across methods/purposes; newly issued same-purpose action retires old code/link. Suppressed requests retain generic 202. |
+| OTP password recovery | A14, A15, A04 | One confirmation with email/code/new password; all previous sessions revoked; explicit login after success. |
+| Legacy password account | A01, A02, A04, A10, P01 | Register 202 without tokens; unverified login 403; verification 200; login token pair; one protected General project. |
 | Register existing address | A01 | Generic 202; no account-existence message or automatic login assumption. |
 | Resend within/outside limits | A03, A02 | Generic 202 can suppress sending; newly issued same-purpose link retires the old one. |
 | Bad/used/expired action token | A02, A07 | 400 and link-renewal guidance; no access-refresh loop. |
@@ -82,7 +86,7 @@ For provider-backed scenarios, use small synthetic notes with an explicit common
 
 ## 4. Definition of a completed integration
 
-- All 37 application operations are mapped or intentionally excluded from UI scope with an explicit reason.
+- All 42 application operations are mapped or intentionally excluded from UI scope with an explicit reason.
 - Authentication and recovery work without the local web tester.
 - The client handles all documented nullable fields and missing-vs-null PATCH behavior.
 - Each intentional create attempt has one persisted idempotency key.
@@ -101,8 +105,8 @@ The following are **not resolved by writing documentation**:
 | Topic | Implemented/current fact | Required agreement or follow-up |
 | --- | --- | --- |
 | Password policy | Source and current auth docs require 15–128; user previously requested minimum five. Shared login schema blocks shorter passwords before verification. | Reconcile new-password policy and existing-account login compatibility. |
-| Development email links | Current mail adapter rejects HTTP, including localhost; earlier localhost-only exception was approved. | Fix/verify development compatibility; don't claim localhost links work on this source. |
-| Production action routing | One configurable HTTPS base URL; both purposes currently append token only. No purpose discriminator is supplied. | Agree verification/reset cold-start routing, domain/app association and mobile behavior. |
+| Legacy development email links | Current mail adapter rejects HTTP, including localhost; earlier localhost-only exception was approved. | Fix/verify development compatibility; don't claim localhost links work on this source. |
+| Legacy production action routing | One configurable HTTPS base URL; both purposes currently append token only. No purpose discriminator is supplied. | Agree verification/reset cold-start routing, domain/app association and mobile behavior. |
 | Production API host | No production URL or successful Azure deployment supplied by this handbook. | Choose hosting/budget and deploy after environment approval. |
 | Running local revision | Review observed old images, stopped dependencies and missing dedicated consumers. | Complete a coordinated local upgrade before testing this contract live. |
 | Google platform setup | Backend takes one configured audience. | Coordinate native platform registrations/signing IDs and a valid matching ID token with platform owners. |

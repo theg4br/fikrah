@@ -9,7 +9,7 @@ The maintained mobile contract now starts at the [FIKRAH mobile integration hand
 | Need | Reference |
 | --- | --- |
 | Product responsibilities and user stories | [Product and user journeys](../../mobile/product-and-user-journeys.md) |
-| Every operation's purpose, timing, request, response and failures | [37-operation endpoint reference](../../mobile/api-reference.md) |
+| Every operation's purpose, timing, request, response and failures | [42-operation endpoint reference](../../mobile/api-reference.md) |
 | DTO fields, nullability, constraints, examples and error recovery | [Data models and errors](../../mobile/data-models-and-errors.md) |
 | Direct Flutter auth, refresh, polling, idempotency, SSE and audio | [Flutter integration](../../mobile/flutter-integration.md) |
 | Integration scenarios and unresolved release decisions | [Acceptance checklist](../../mobile/integration-acceptance.md) |
