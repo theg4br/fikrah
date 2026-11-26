@@ -16,6 +16,7 @@ from app.contracts.notes import (
 )
 from app.schemas.notes import (
     NoteCreate,
+    NoteFavoriteUpdate,
     NoteUpdate,
     NoteView,
     ProposalAction,
@@ -53,6 +54,7 @@ def _note_view(note: NoteResult) -> NoteView:
         project_id=note.project_id,
         title=note.title,
         content=note.content,
+        is_favorite=note.is_favorite,
         concepts=list(note.concepts),
         refinement_proposal=note.refinement_proposal,
         revision=note.revision,
@@ -97,9 +99,27 @@ async def list_project_notes(
     user: AuthenticatedUser,
     db: Db,
     service: NoteServiceDependency,
+    is_favorite: bool | None = None,
 ) -> list[NoteView]:
-    notes = await _execute(service.list_project_notes(db, user.id, project_id))
+    notes = await _execute(
+        service.list_project_notes(db, user.id, project_id, is_favorite=is_favorite)
+    )
     return [_note_view(note) for note in notes]
+
+
+@router.put(
+    "/v1/notes/{note_id}/favorite", response_model=NoteView,
+    responses={404: {"description": "Note not found"}},
+)
+async def set_note_favorite(
+    note_id: UUID,
+    body: NoteFavoriteUpdate,
+    user: AuthenticatedUser,
+    db: Db,
+    service: NoteServiceDependency,
+) -> NoteView:
+    note = await _execute(service.set_favorite(db, user.id, note_id, body.is_favorite))
+    return _note_view(note)
 
 
 @router.get("/v1/notes/{note_id}", response_model=NoteView)

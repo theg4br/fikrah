@@ -140,11 +140,23 @@ class NoteService:
         return note
 
     async def list_project_notes(
-        self, db: AsyncSession, user_id: UUID, project_id: UUID
+        self, db: AsyncSession, user_id: UUID, project_id: UUID,
+        *, is_favorite: bool | None = None,
     ) -> list[NoteResult]:
         await self._owned_project(db, user_id, project_id)
-        notes = await self._repository.list_for_project(db, user_id, project_id)
+        notes = await self._repository.list_for_project(
+            db, user_id, project_id, is_favorite=is_favorite
+        )
         return [self._result(note) for note in notes]
+
+    async def set_favorite(
+        self, db: AsyncSession, user_id: UUID, note_id: UUID, is_favorite: bool
+    ) -> NoteResult:
+        note = await self._owned_note(db, user_id, note_id, lock=True)
+        await self._repository.set_favorite(db, note, is_favorite)
+        result = self._result(note)
+        await db.commit()
+        return result
 
     async def get_note(
         self, db: AsyncSession, user_id: UUID, note_id: UUID
@@ -282,6 +294,7 @@ class NoteService:
             project_id=note.project_id,
             title=note.title,
             content=note.content,
+            is_favorite=note.is_favorite,
             concepts=tuple(note.concepts or ()),
             refinement_proposal=note.refinement_proposal,
             revision=note.revision,

@@ -45,4 +45,5 @@ def _search_result_view(match: SearchMatch) -> SearchResult:
         content=match.content,
         score=match.score,
         updated_at=match.updated_at,
+        is_favorite=match.is_favorite,
     )

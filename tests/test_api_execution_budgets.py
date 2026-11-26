@@ -105,7 +105,7 @@ async def test_chat_timeout_discards_late_generation_and_keeps_social_available(
     monkeypatch.setattr(chat_service, "_run_blocking", pool.run)
     monkeypatch.setenv("FIKRAH_CHAT_TIMEOUT_SECONDS", "0.1")
     matches = [
-        SearchMatch(note_id, "Title", "Content", 2, 0.9, datetime.now(timezone.utc))
+        SearchMatch(note_id, "Title", "Content", 2, 0.9, datetime.now(timezone.utc), is_favorite=False)
     ]
     monkeypatch.setattr(search_service, "retrieve", AsyncMock(return_value=matches))
 

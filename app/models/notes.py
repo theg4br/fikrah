@@ -5,12 +5,14 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
     String,
     Text,
+    false,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -37,6 +39,9 @@ class Note(Base):
     project_id: Mapped[UUID] = mapped_column(index=True)
     title: Mapped[str | None] = mapped_column(String(240), nullable=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    is_favorite: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
     concepts: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     refinement_proposal: Mapped[str | None] = mapped_column(Text, nullable=True)
     revision: Mapped[int] = mapped_column(default=1, nullable=False)

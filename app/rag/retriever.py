@@ -64,6 +64,7 @@ async def retrieve_current_notes(
             revision=current_notes[note_id].revision,
             score=score,
             updated_at=current_notes[note_id].updated_at,
+            is_favorite=current_notes[note_id].is_favorite,
         )
         for note_id, _revision, score in matches
         if note_id in current_notes

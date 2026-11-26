@@ -11,6 +11,7 @@ class NoteResult:
     project_id: UUID
     title: str | None
     content: str
+    is_favorite: bool
     concepts: tuple[str, ...]
     refinement_proposal: str | None
     revision: int

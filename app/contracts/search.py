@@ -13,3 +13,4 @@ class SearchMatch:
     revision: int
     score: float
     updated_at: datetime
+    is_favorite: bool

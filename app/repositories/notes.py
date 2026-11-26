@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.locks import lock_project_processing
@@ -70,14 +70,25 @@ class NoteRepository:
         return await db.scalar(owned_project_query(user_id, project_id, lock=lock))
 
     async def list_for_project(
-        self, db: AsyncSession, user_id: UUID, project_id: UUID
+        self, db: AsyncSession, user_id: UUID, project_id: UUID,
+        *, is_favorite: bool | None = None,
     ) -> list[Note]:
-        result = await db.scalars(
-            select(Note)
-            .where(Note.user_id == user_id, Note.project_id == project_id)
-            .order_by(Note.updated_at.desc(), Note.id)
-        )
+        query = select(Note).where(Note.user_id == user_id, Note.project_id == project_id)
+        if is_favorite is not None:
+            query = query.where(Note.is_favorite == is_favorite)
+        result = await db.scalars(query.order_by(Note.updated_at.desc(), Note.id))
         return list(result)
+
+    async def set_favorite(self, db: AsyncSession, note: Note, value: bool) -> None:
+        # Explicitly retain content time: SQLAlchemy's automatic onupdate must
+        # not reorder notes or make a metadata write look like a content edit.
+        await db.execute(
+            update(Note)
+            .where(Note.id == note.id, Note.user_id == note.user_id)
+            .values(is_favorite=value, updated_at=Note.updated_at)
+            .execution_options(synchronize_session=False)
+        )
+        await db.refresh(note)
 
     async def delete_with_owned_data(self, db: AsyncSession, note: Note) -> None:
         db.add(VectorCleanupRequest(note_id=note.id))

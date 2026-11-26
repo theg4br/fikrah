@@ -25,3 +25,4 @@ class SearchResult(BaseModel):
     content: str
     score: float
     updated_at: datetime
+    is_favorite: bool

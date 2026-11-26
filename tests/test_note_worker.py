@@ -115,11 +115,17 @@ def note_job_db(tmp_path, monkeypatch: pytest.MonkeyPatch):
     engine.dispose()
 
 
+@pytest.mark.parametrize("favorite", [False, True])
 def test_celery_job_analyzes_current_revision_and_upserts_embedding(
-    note_job_db, monkeypatch: pytest.MonkeyPatch
+    note_job_db, monkeypatch: pytest.MonkeyPatch, favorite
 ) -> None:
 
     database_path, job_id, note_id = note_job_db
+    engine = create_engine(f"sqlite:///{database_path}")
+    with Session(engine) as session:
+        session.get(Note, note_id).is_favorite = favorite
+        session.commit()
+    engine.dispose()
     vector_store = FakeVectorStore()
     monkeypatch.setattr(
         worker_container.LLMProviderFactory,
@@ -151,6 +157,7 @@ def test_celery_job_analyzes_current_revision_and_upserts_embedding(
         assert note.refinement_proposal == "A clearer version of the thought."
         assert note.concepts == ["knowledge", "ideas"]
         assert note.processing_status == "completed"
+        assert note.is_favorite is favorite
         assert job.status == "completed"
     engine.dispose()
 
