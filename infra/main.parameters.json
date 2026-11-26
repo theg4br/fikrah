@@ -1,0 +1,69 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": {
+      "value": "fikrah-prod"
+    },
+    "location": {
+      "value": "austriaeast"
+    },
+    "sessionId": {
+      "value": "23107c84-6476-4ff3-8aa3-1037ac8b51b1"
+    },
+    "deployedBy": {
+      "value": "operator"
+    },
+    "createdAt": {
+      "value": "2026-11-26T15:58:36Z"
+    },
+    "projectName": {
+      "value": "fikrah"
+    },
+    "resourceGroupName": {
+      "value": "rg-fikrah-prod-austriaeast"
+    },
+    "virtualMachineName": {
+      "value": "vm-fikrah-prod"
+    },
+    "osDiskName": {
+      "value": "disk-fikrah-prod-os"
+    },
+    "virtualNetworkName": {
+      "value": "vnet-fikrah-prod"
+    },
+    "networkSecurityGroupName": {
+      "value": "nsg-fikrah-prod"
+    },
+    "networkInterfaceName": {
+      "value": "nic-fikrah-prod"
+    },
+    "publicIpName": {
+      "value": "pip-fikrah-prod"
+    },
+    "subnetName": {
+      "value": "snet-fikrah-prod"
+    },
+    "ipConfigurationName": {
+      "value": "ipconfig-fikrah-prod"
+    },
+    "backupStorageAccountName": {
+      "value": "stfikrahbackup2310"
+    },
+    "backupContainerName": {
+      "value": "backups"
+    },
+    "vmSize": {
+      "value": "Standard_B2als_v2"
+    },
+    "osDiskSizeGB": {
+      "value": 64
+    },
+    "adminUsername": {
+      "value": "fikrahadmin"
+    },
+    "ubuntuImageVersion": {
+      "value": "24.04.202611170"
+    }
+  }
+}
