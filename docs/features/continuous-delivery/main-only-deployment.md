@@ -47,3 +47,5 @@ The [operator runbook](../azure-vm-deployment/operations-runbook.md) covers serv
 - [Azure VM Run Command](https://learn.microsoft.com/en-us/azure/virtual-machines/linux/run-command)
 
 The first main run exposed the legacy-subject mismatch before application installation; Azure trust was corrected to the observed immutable subject and the failed deploy job was retried using the existing tested artifact. See [GitHub immutable subjects](https://docs.github.com/en/actions/reference/security/oidc).
+
+Docker image identity uses the SHA-256 of the exported image configuration, not the source daemon's store-specific ID. This preserves strict verification when GitHub uses a containerd image store and the VM uses Docker's classic store. The original daemon ID remains recorded as provenance. A regression test covers different source/store IDs.

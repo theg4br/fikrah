@@ -3,6 +3,7 @@
 import ast
 import hashlib
 import importlib.util
+import io
 import json
 import subprocess
 import tarfile
@@ -92,8 +93,15 @@ def test_package_contains_only_checksummed_runtime_inputs(tmp_path):
     revision = "a" * 40
     inspected = {"Id": "sha256:" + "b" * 64, "Architecture": "amd64",
                  "Config": {"Labels": {"org.opencontainers.image.revision": revision}}}
+    config_bytes = b'{"architecture":"amd64","config":{}}'
+    portable_id = "sha256:" + hashlib.sha256(config_bytes).hexdigest()
     def export(image, destination):
-        destination.write_bytes(b"dummy-image")
+        files = {"manifest.json": json.dumps([{"Config": "config.json"}]).encode(), "config.json": config_bytes}
+        with tarfile.open(destination, "w:gz") as bundle:
+            for name, content in files.items():
+                info = tarfile.TarInfo(name)
+                info.size = len(content)
+                bundle.addfile(info, io.BytesIO(content))
     with patch.object(packager.subprocess, "check_output", return_value=json.dumps([inspected]).encode()), patch.object(
         packager.subprocess, "run"
     ), patch.object(packager, "export_image", side_effect=export):
@@ -101,7 +109,9 @@ def test_package_contains_only_checksummed_runtime_inputs(tmp_path):
     with tarfile.open(archive) as bundle:
         assert set(bundle.getnames()) == set(packager.RUNTIME_FILES) | {"image.tar.gz", "release.json", "release.env"}
         manifest = json.load(bundle.extractfile("release.json"))
-        assert manifest["image_id"] == inspected["Id"]
+        assert manifest["source_image_id"] == inspected["Id"]
+        assert manifest["image_id"] == portable_id
+        assert manifest["image_id"] != inspected["Id"]
         for name, digest in manifest["files"].items():
             assert hashlib.sha256(bundle.extractfile(name).read()).hexdigest() == digest
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
