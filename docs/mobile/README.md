@@ -15,11 +15,11 @@ This is the starting point for the Flutter team. It describes the **implemented 
 | [Integration acceptance and open decisions](integration-acceptance.md) | A practical handover checklist, known gaps and decisions that must not be guessed. |
 | [OpenAPI snapshot](openapi.json) | Importable schema generated from this source revision; useful for API clients and model generation. |
 
-Field definitions and example response objects live in the data-model document. Endpoint entries refer to those objects rather than repeating their definitions. The endpoint reference owns the operation-by-operation call contract; feature documents explain implementation history.
+Field definitions and example response objects live in the data-model document. Endpoint entries refer to those objects rather than repeating their definitions. The endpoint reference owns the operation-by-operation call contract; feature documents explain current processing rules and operational behavior.
 
 ## First successful session
 
-1. Obtain a reachable backend base URL from the backend team. No public production URL is assigned by this handbook.
+1. Obtain a reachable backend base URL from the backend team. The current demo base URL is `https://fikrah-api-23107c84.austriaeast.cloudapp.azure.com`; see the [operator runbook](../features/azure-vm-deployment/operations-runbook.md) for deployment limits.
 2. Register using `/v1/auth/register/otp`, enter the emailed six-digit code at `/v1/auth/verify-email/otp`, then log in; or obtain a Google ID token and exchange it.
 3. Store the returned FIKRAH access/refresh pair securely.
 4. Fetch `GET /v1/auth/me` and `GET /v1/projects`.

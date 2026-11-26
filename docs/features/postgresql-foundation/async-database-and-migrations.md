@@ -39,7 +39,7 @@ alembic upgrade head
 
 - When `DATABASE_URL` is configured, FastAPI initializes the connection pool during application startup and disposes it at shutdown.
 - When `DATABASE_URL` is absent, the API can still start for database-independent routes such as `GET /health`; any database dependency use requires configuration.
-- `/health` checks API process availability only. `/ready` separately checks PostgreSQL, Redis, and Qdrant; see the [operational API contract](../fastapi-foundation/backend-health-api.md#dependency-readiness).
+- `/health` checks API process availability only. `/ready` separately checks PostgreSQL, Redis, and Qdrant; see the [operational API contract](../../operations/health-checks.md).
 - Creating an engine does not establish a database connection immediately; PostgreSQL is contacted when a session performs database I/O.
 
 ## Scope Boundaries

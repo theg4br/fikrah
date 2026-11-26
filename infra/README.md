@@ -15,3 +15,9 @@ az bicep build --file infra/main.bicep --stdout >/dev/null
 ```
 
 The tests use dummy credentials and Compose config parsing; they do not start the production stack, provision Azure resources or prove application acceptance. Shell scripts must also pass `bash -n`/`sh -n` before use.
+
+## Development and release
+
+The root `compose.yaml` is for local development (`docker compose up -d --build`), with the API on port 8000 and Mailpit on port 8025. It never supplies production browser cookies or credentials to Flutter. SMTP overrides and provider keys belong in the ignored local `.env`; the deployed VM uses its separate protected configuration.
+
+The main-only release path is documented in [continuous delivery](../docs/features/continuous-delivery/main-only-deployment.md). Both CI and deployment use the same tested image. Runtime versions are pinned in the standalone VM Compose file; update datastore versions deliberately and validate their adapters.
