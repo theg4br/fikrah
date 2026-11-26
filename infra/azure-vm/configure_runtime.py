@@ -6,7 +6,6 @@ verified SSH, then install it as /etc/fikrah with root-only directory access.
 """
 
 import argparse
-import json
 import os
 import re
 import secrets
@@ -65,8 +64,6 @@ def generate(args: argparse.Namespace) -> None:
         raise ValueError("Supply the actual public hostname")
     if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", args.email):
         raise ValueError("Supply a certificate contact email")
-    if not re.fullmatch(r"[a-z0-9]{3,24}", args.backup_storage_account):
-        raise ValueError("Invalid backup storage account name")
     if not args.source_env.is_file():
         raise ValueError("Source environment file does not exist")
     action_url = None if args.otp_only else https_url(args.email_action_url)
@@ -137,11 +134,7 @@ def generate(args: argparse.Namespace) -> None:
         "appendonly yes\nappendfsync everysec\nmaxmemory 128mb\n"
         f"maxmemory-policy noeviction\nrequirepass {passwords['redis_password']}\n"
     ))
-    write_private(target / "operations.json", json.dumps({
-        "backup_storage_account": args.backup_storage_account,
-        "backup_container": "backups",
-        "hostname": args.hostname,
-    }, indent=2) + "\n")
+
 
 
 def main() -> None:
@@ -153,7 +146,6 @@ def main() -> None:
     actions = parser.add_mutually_exclusive_group(required=True)
     actions.add_argument("--email-action-url")
     actions.add_argument("--otp-only", action="store_true", help="Leave legacy email links unconfigured")
-    parser.add_argument("--backup-storage-account", default="stfikrahbackup2310")
     args = parser.parse_args()
     try:
         generate(args)

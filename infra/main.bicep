@@ -21,8 +21,6 @@ param networkInterfaceName string
 param publicIpName string
 param subnetName string
 param ipConfigurationName string
-param backupStorageAccountName string
-param backupContainerName string
 
 @allowed(['Standard_B2als_v2'])
 param vmSize string
@@ -102,23 +100,6 @@ module virtualMachine './modules/virtual-machine.bicep' = {
   }
 }
 
-module backupStorage './modules/backup-storage.bicep' = {
-  name: 'fikrah-backup-storage'
-  scope: resourceGroup
-  params: {
-    location: location
-    tags: tags
-    storageAccountName: backupStorageAccountName
-    containerName: backupContainerName
-    vmSubnetId: network.outputs.subnetId
-    vmPrincipalId: virtualMachine.outputs.principalId
-  }
-}
-
 output publicIPAddress string = network.outputs.publicIPAddress
 output fqdn string = network.outputs.fqdn
 output vmResourceId string = virtualMachine.outputs.vmResourceId
-// Nonsecret metadata for the separately reviewed SSH bootstrap configuration.
-output backupStorageAccountName string = backupStorage.outputs.storageAccountName
-output backupContainerName string = backupStorage.outputs.containerName
-output backupBlobEndpoint string = backupStorage.outputs.blobEndpoint

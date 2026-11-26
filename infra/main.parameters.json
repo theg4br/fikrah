@@ -47,12 +47,6 @@
     "ipConfigurationName": {
       "value": "ipconfig-fikrah-prod"
     },
-    "backupStorageAccountName": {
-      "value": "stfikrahbackup2310"
-    },
-    "backupContainerName": {
-      "value": "backups"
-    },
     "vmSize": {
       "value": "Standard_B2als_v2"
     },

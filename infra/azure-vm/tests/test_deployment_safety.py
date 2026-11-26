@@ -6,7 +6,6 @@ import json
 import os
 import subprocess
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -21,7 +20,6 @@ def load(name):
 
 
 config = load("configure_runtime")
-backup = load("backup")
 params = load("prepare_parameters")
 
 
@@ -37,8 +35,7 @@ def runtime(tmp_path):
     original = source.read_bytes()
     target = tmp_path / "runtime"
     args = argparse.Namespace(source_env=source, output_dir=target, hostname="api.example.com",
-                              email="operator@example.com", otp_only=False, email_action_url="https://app.example.com/auth",
-                              backup_storage_account="stfikrahbackup2310")
+                              email="operator@example.com", otp_only=False, email_action_url="https://app.example.com/auth")
     config.generate(args)
     assert source.read_bytes() == original
     return args, target
@@ -106,57 +103,10 @@ def test_production_compose_boundaries_and_quoting(runtime):
         assert set(services[name]["networks"]) == {"data"}
 
 
-def test_failed_backup_blocks_more_archives(tmp_path):
-    (tmp_path / "failed.tar.gz").write_bytes(b"dummy")
-    with pytest.raises(RuntimeError, match="unuploaded"):
-        backup.admit_capture(tmp_path)
-
-
-def test_upload_is_bounded_and_commits_once(tmp_path):
-    archive = tmp_path / "archive.tar.gz"
-    archive.write_bytes(b"x" * (8 * 1024 * 1024 + 1))
-    response = MagicMock()
-    response.__enter__.return_value.read.return_value = b'{"access_token":"dummy-token"}'
-    opener = MagicMock()
-    opener.open.return_value = response
-    requests = []
-    with patch.object(backup.urllib.request, "build_opener", return_value=opener), patch.object(
-        backup, "blob_request", side_effect=lambda *args: requests.append(args)
-    ):
-        digest = backup.upload(archive, "stfikrahbackup2310", "backups", "archive.tar.gz")
-    assert len(requests) == 3
-    assert len(requests[0][3]) == 8 * 1024 * 1024
-    assert len(requests[1][3]) == 1
-    assert requests[2][2].endswith("?comp=blocklist")
-    assert requests[2][4]["If-None-Match"] == "*"
-    assert requests[2][4]["x-ms-meta-sha256"] == digest
-
-
-def test_upload_failure_has_no_receipt(tmp_path):
-    archive = tmp_path / "archive.tar.gz"
-    archive.write_bytes(b"dummy")
-    with patch.object(backup.urllib.request, "build_opener", side_effect=OSError("offline")), pytest.raises(OSError):
-        backup.upload(archive, "stfikrahbackup2310", "backups", archive.name)
-    assert not archive.with_suffix(".receipt.json").exists()
-
-
-def test_blob_request_has_required_date_and_redacts_remote_errors():
-    connection = MagicMock()
-    connection.getresponse.return_value.status = 403
-    with patch.object(backup.http.client, "HTTPSConnection", return_value=connection), pytest.raises(
-        RuntimeError, match="HTTP 403"
-    ):
-        backup.blob_request("stfikrahbackup2310", "dummy-token", "/backups/test?comp=block", b"dummy")
-    headers = connection.request.call_args.kwargs["headers"]
-    assert headers["x-ms-date"].endswith(" GMT")
-    assert headers["x-ms-version"] == "2023-11-03"
-    connection.close.assert_called_once()
-
-
 def test_package_runtime_allowlist_excludes_test_directories():
     source = (RUNTIME / "package_release.sh").read_text()
     assert "git archive HEAD infra/azure-vm |" not in source
-    assert "runtime_files=(compose.yaml Caddyfile postgres-init.sh bootstrap.sh install_runtime.sh install_release.sh backup.py)" in source
+    assert "runtime_files=(compose.yaml Caddyfile postgres-init.sh bootstrap.sh install_runtime.sh install_release.sh)" in source
 
 
 def test_otp_only_leaves_legacy_links_unconfigured(runtime, tmp_path):

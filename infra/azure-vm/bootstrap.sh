@@ -32,7 +32,7 @@ EOF
 apt-get update
 apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 install -d -m 0750 /opt/fikrah/releases
-install -d -m 0700 /etc/fikrah /var/lib/fikrah/backups
+install -d -m 0700 /etc/fikrah /var/lib/fikrah
 install -d -m 0755 /etc/docker
 cat >/etc/docker/daemon.json <<'EOF'
 {"log-driver":"local","log-opts":{"max-size":"10m","max-file":"3"},"live-restore":true}
@@ -40,7 +40,7 @@ EOF
 cat >/usr/local/sbin/fikrah-container-firewall <<'EOF'
 #!/bin/sh
 set -eu
-# Host-only backup jobs may obtain managed identity tokens. Containers may not.
+# Containers must not obtain host managed identity tokens.
 /usr/sbin/iptables -C DOCKER-USER -d 169.254.169.254/32 -j REJECT 2>/dev/null || \
   /usr/sbin/iptables -I DOCKER-USER 1 -d 169.254.169.254/32 -j REJECT
 EOF

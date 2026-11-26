@@ -33,7 +33,7 @@ PIN
 cp "$build_context/Dockerfile" "$release_dir/Dockerfile.pinned"
 docker build --platform linux/amd64 --label "org.opencontainers.image.revision=$revision" --tag "$image" "$build_context"
 docker image save "$image" | gzip >"$release_dir/image.tar.gz"
-runtime_files=(compose.yaml Caddyfile postgres-init.sh bootstrap.sh install_runtime.sh install_release.sh backup.py)
+runtime_files=(compose.yaml Caddyfile postgres-init.sh bootstrap.sh install_runtime.sh install_release.sh)
 runtime_paths=()
 for file in "${runtime_files[@]}"; do runtime_paths+=("infra/azure-vm/$file"); done
 git archive HEAD "${runtime_paths[@]}" | tar -x -C "$release_dir" --strip-components=2

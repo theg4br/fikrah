@@ -14,4 +14,4 @@ pytest -q --confcutdir=infra/azure-vm/tests infra/azure-vm/tests
 az bicep build --file infra/main.bicep --stdout >/dev/null
 ```
 
-The tests use dummy credentials and Compose config parsing; they do not start the production stack, provision Azure resources or prove backup restore. Shell scripts must also pass `bash -n`/`sh -n` before use.
+The tests use dummy credentials and Compose config parsing; they do not start the production stack, provision Azure resources or prove application acceptance. Shell scripts must also pass `bash -n`/`sh -n` before use.
