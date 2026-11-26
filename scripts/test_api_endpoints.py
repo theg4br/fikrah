@@ -163,8 +163,15 @@ def parse_response(response: httpx.Response) -> Any:
 
 def redact(value: Any) -> Any:
     if isinstance(value, Mapping):
+        # FastAPI validation errors echo fields under "input", not their name.
+        location = value.get("loc", [])
+        sensitive_error = isinstance(location, (list, tuple)) and any(
+            str(part).lower() in SENSITIVE_KEYS for part in location
+        )
         return {
-            key: "<redacted>" if key.lower() in SENSITIVE_KEYS else redact(item)
+            key: "<redacted>"
+            if key.lower() in SENSITIVE_KEYS or (sensitive_error and key in {"input", "ctx"})
+            else redact(item)
             for key, item in value.items()
         }
     if isinstance(value, list):
