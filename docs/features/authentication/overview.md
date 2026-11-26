@@ -88,7 +88,7 @@ All routes use `/v1/auth`. JSON is used for requests and responses. Tokens are o
 
 ## Security and Technical Choices
 
-- Password length is 15–128 characters with no composition rules. Passwords are stored using Argon2id via `pwdlib`.
+- Password length is 5–128 characters across registration, login and both OTP/link recovery with no composition rules. Passwords are stored using Argon2id via `pwdlib`.
 - Google ID tokens are verified against `GOOGLE_CLIENT_ID`; the Google verifier validates the signature, issuer, audience, and time claims. The backend additionally requires a verified email and stable subject.
 - Action tokens and refresh tokens are generated with a cryptographically secure random generator. Authentication lookups persist SHA-256 hashes. Pending action emails additionally hold an authenticated encrypted copy of their action token for delivery retries; it is scrubbed after successful sending or cancellation. Refresh tokens are never stored reversibly.
 - JWT signing uses HS256 with `FIKRAH_JWT_SECRET`; the secret must contain at least 32 characters and must not be the public `.env.example` placeholder. API startup and token signing/verification reject unsafe values. Tokens include an issuer and a distinct access-token type.

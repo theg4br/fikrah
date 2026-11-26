@@ -4,10 +4,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+PASSWORD_MIN_LENGTH = 5
+
 
 class Credentials(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=15, max_length=128)
+    password: str = Field(min_length=PASSWORD_MIN_LENGTH, max_length=128)
 
     @field_validator("email")
     @classmethod
@@ -33,11 +35,11 @@ class EmailOtpRequest(EmailRequest):
 
 
 class ResetPasswordOtpRequest(EmailOtpRequest):
-    new_password: str = Field(min_length=15, max_length=128)
+    new_password: str = Field(min_length=PASSWORD_MIN_LENGTH, max_length=128)
 
 
 class ResetPasswordRequest(TokenRequest):
-    new_password: str = Field(min_length=15, max_length=128)
+    new_password: str = Field(min_length=PASSWORD_MIN_LENGTH, max_length=128)
 
 
 class GoogleLoginRequest(BaseModel):

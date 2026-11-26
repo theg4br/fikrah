@@ -44,7 +44,7 @@ Operation IDs refer to the [endpoint reference](api-reference.md).
 | Resend within/outside limits | A03, A02 | Generic 202 can suppress sending; newly issued same-purpose link retires the old one. |
 | Bad/used/expired action token | A02, A07 | 400 and link-renewal guidance; no access-refresh loop. |
 | Wrong password | A04 | 401; draft input retained appropriately; no call to refresh. |
-| Password length discrepancy | A01, A04, A07 | Current source returns 422 below 15; record the unresolved earlier five-character requirement. Do not mark this reconciled. |
+| Password length | A01, A04, A07, A12, A15 | Accept 5–128 characters consistently for registration, login and both reset methods; reject shorter/longer values with 422 without consuming an OTP. |
 | Google new/existing account | A05, A10, P01 | FIKRAH token pair, account linking/General behavior, no Google token used as the API Bearer. |
 | Google invalid/conflicting identity | A05 | 401/409; capacity/limit 429 and dependency 503 are distinguished. |
 | Refresh | A08, A10 | Pair replaced; new access works. Do not deliberately reuse old refresh in an ordinary user session. |
@@ -104,7 +104,6 @@ The following are **not resolved by writing documentation**:
 
 | Topic | Implemented/current fact | Required agreement or follow-up |
 | --- | --- | --- |
-| Password policy | Source and current auth docs require 15–128; user previously requested minimum five. Shared login schema blocks shorter passwords before verification. | Reconcile new-password policy and existing-account login compatibility. |
 | Legacy development email links | Current mail adapter rejects HTTP, including localhost; earlier localhost-only exception was approved. | Fix/verify development compatibility; don't claim localhost links work on this source. |
 | Legacy production action routing | One configurable HTTPS base URL; both purposes currently append token only. No purpose discriminator is supplied. | Agree verification/reset cold-start routing, domain/app association and mobile behavior. |
 | Production API host | No production URL or successful Azure deployment supplied by this handbook. | Choose hosting/budget and deploy after environment approval. |

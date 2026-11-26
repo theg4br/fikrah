@@ -61,7 +61,7 @@ New mobile clients should use [OTP activation and recovery](#otp-activation-and-
 
 - **Public. Purpose:** validate email/password and issue a FIKRAH session.
 - **When/why:** user submits login; do not submit on each input change.
-- **Input:** `Credentials`; current source validates 15–128 password characters even for login.
+- **Input:** `Credentials`; passwords must be 5–128 characters, including login; values are not trimmed.
 - **Success:** `200` → `AuthTokens`.
 - **Additional failures:** `401` invalid credentials; `403` email unverified; `429` login/password-work limit; `503` limiter unavailable.
 - **Next:** persist token pair, then A10 and P01.
