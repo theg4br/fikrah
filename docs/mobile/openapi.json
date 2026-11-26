@@ -46,6 +46,135 @@
         }
       }
     },
+    "/v1/auth/register/otp": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Register With Otp",
+        "description": "Create an account and email a six-digit activation code; then verify and log in.",
+        "operationId": "register_with_otp_v1_auth_register_otp_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credentials"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/verify-email/otp": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Verify Email Otp",
+        "description": "Verify mailbox ownership using email and code; does not issue session tokens.",
+        "operationId": "verify_email_otp_v1_auth_verify_email_otp_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailOtpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid, expired, used or exhausted code"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/resend-verification/otp": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Resend Verification Otp",
+        "description": "Request an activation code; generic acknowledgment also covers send suppression.",
+        "operationId": "resend_verification_otp_v1_auth_resend_verification_otp_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/auth/verify-email": {
       "post": {
         "tags": [
@@ -287,6 +416,96 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/password-reset/otp/request": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Request Password Reset Otp",
+        "description": "Email a reset code for an eligible account without disclosing account existence.",
+        "operationId": "request_password_reset_otp_v1_auth_password_reset_otp_request_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/password-reset/otp/confirm": {
+      "post": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Confirm Password Reset Otp",
+        "description": "Consume the reset code and change the password in one request; revoke all sessions.",
+        "operationId": "confirm_password_reset_otp_v1_auth_password_reset_otp_confirm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordOtpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid, expired, used or exhausted code"
+          },
+          "429": {
+            "description": "Password processing is busy"
           },
           "422": {
             "description": "Validation Error",
@@ -1925,6 +2144,28 @@
         ],
         "title": "Credentials"
       },
+      "EmailOtpRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 6,
+            "minLength": 6,
+            "pattern": "^[0-9]{6}$",
+            "title": "Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "code"
+        ],
+        "title": "EmailOtpRequest"
+      },
       "EmailRequest": {
         "properties": {
           "email": {
@@ -2458,6 +2699,35 @@
           "updated_at"
         ],
         "title": "RelatedNoteView"
+      },
+      "ResetPasswordOtpRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 6,
+            "minLength": 6,
+            "pattern": "^[0-9]{6}$",
+            "title": "Code"
+          },
+          "new_password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 15,
+            "title": "New Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "code",
+          "new_password"
+        ],
+        "title": "ResetPasswordOtpRequest"
       },
       "ResetPasswordRequest": {
         "properties": {

@@ -10,7 +10,7 @@ This repository owns the FastAPI backend and LLM workflows. Flutter is the prima
 
 Read the [mobile integration handbook](docs/mobile/README.md).
 
-It covers product/user journeys, all 37 application operations, request/response examples, field validation, errors, session refresh, note polling, idempotency, POST/SSE chat, voice transcription, acceptance scenarios and open release decisions.
+It covers product/user journeys, all 42 application operations, request/response examples, field validation, errors, session refresh, note polling, idempotency, POST/SSE chat, voice transcription, acceptance scenarios and open release decisions.
 
 - [Endpoint reference](docs/mobile/api-reference.md)
 - [Data models and errors](docs/mobile/data-models-and-errors.md)

@@ -29,7 +29,9 @@ HTTP field names are snake_case. Client models may use local naming conventions 
 | --- | --- |
 | `Credentials` — register/login | `email`: valid email, normalized by trimming/lowercasing. `password`: string, **15–128 characters in current source**, not trimmed. Earlier minimum-five requirement is unresolved; see release gaps. |
 | `EmailRequest` | `email`: valid email, trimmed/lowercased. |
-| `TokenRequest` — verification | `token`: required string, 20–512 characters. |
+| `EmailOtpRequest` | `email`: normalized valid email; `code`: exactly six ASCII digits as a **string**, including leading zeroes. |
+| `ResetPasswordOtpRequest` | `email`, `code` as above; `new_password`: 15–128 characters, not trimmed. |
+| `TokenRequest` — legacy verification | `token`: required string, 20–512 characters. |
 | `ResetPasswordRequest` | `token`: 20–512 characters; `new_password`: 15–128 characters in current source. |
 | `GoogleLoginRequest` | `id_token`: required Google JWT string, 20–8,192 characters. |
 | `RefreshRequest` — refresh/logout | `refresh_token`: required opaque string, 20–512 characters. |
@@ -367,11 +369,11 @@ Typical validation error:
 }
 ```
 
-Validation entries may include additional fields such as `ctx`, different error types, and echoed input. Parse `detail` as either a string or an array. Do not persist/log full authentication requests or error payloads that may echo passwords/tokens. Transport failures and infrastructure 5xx responses can have non-JSON bodies; provide a safe fallback.
+Validation entries may include additional fields such as `ctx`, different error types, and echoed input. Parse `detail` as either a string or an array. Do not persist/log full authentication requests or error payloads that may echo passwords/tokens/OTP codes. Transport failures and infrastructure 5xx responses can have non-JSON bodies; provide a safe fallback.
 
 | Status | Meaning in this API | Mobile action |
 | --- | --- | --- |
-| `400` | Invalid/expired/used email verification or reset action token. | Offer a new link request; do not refresh access tokens. |
+| `400` | Invalid/expired/used/exhausted OTP or legacy email action token. | Offer code re-entry/resend or legacy link renewal; do not refresh access tokens. |
 | `401` | Missing/invalid/revoked access session, wrong password, invalid Google identity or invalid refresh token, depending on route. | Refresh once only for a protected-resource access failure. Login/Google/refresh failures have separate handling. |
 | `403` | Valid password but email not verified. | Open verification screen and resend option. |
 | `404` | Missing/inaccessible note/project/conversation. | Remove stale selection/cache as appropriate; do not infer another account owns it. |
@@ -389,6 +391,7 @@ Default quotas are configurable, except the current per-address email-send polic
 | Work | Default limit / behavior |
 | --- | --- |
 | Password login | Five attempts per normalized email per 60-second window. |
+| Email OTP | Six ASCII digits; 10 minutes from issuance; single-use; five incorrect submissions exhaust that code. Wrong/expired/used/unknown all return generic `400`. |
 | Google sign-in | 20 attempts per client IP per 60-second window; 10-second verification budget, eight verifier slots per API process. |
 | LLM-budgeted routes | Ten attempts per authenticated user per 60-second window shared across note create/update/reprocess/regenerate/accept, search, transcription, JSON chat and streaming chat. |
 | Proposal edit/reject, reads, project/conversation CRUD | No LLM request budget on these routes; normal authorization still applies. |

@@ -8,7 +8,7 @@ Provide secure personal accounts for the mobile application and enforce a clear 
 
 - Email/password registration and login with mandatory email verification.
 - Google ID-token sign-in and linking for verified matching email addresses.
-- Email verification and password reset through configurable SMTP links.
+- Email OTP activation and password recovery through configurable SMTP, with legacy links retained temporarily. See [email OTP](../../features/authentication/email-otp.md).
 - HTML email templates for verification before login, password reset, and new-account welcome messages, with plain-text alternatives.
 - Short-lived JWT access tokens and rotating, revocable opaque refresh tokens.
 - Current-user endpoint and protected `General` project creation.

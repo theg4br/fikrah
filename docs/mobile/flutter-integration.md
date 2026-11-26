@@ -10,7 +10,7 @@ Obtain these values from the backend/platform owners:
 | --- | --- |
 | API base origin | Reachable API server, without an appended `/v1`; currently local development uses port 8000. |
 | Google backend audience/client ID | Must match backend `GOOGLE_CLIENT_ID`; native platform registration is coordinated separately. It is not a client secret. |
-| Verification/reset link routing | HTTPS destination, app association and action routing; not finalized. |
+| Legacy verification/reset link routing (OTP does not need it) | HTTPS destination, app association and action routing; not finalized. |
 | API version/revision | Match running environment with this handbook; an old local container can expose an older contract. |
 
 Never place `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, database passwords, JWT signing secret or SMTP credentials in Flutter. The mobile app authenticates only to the backend.
@@ -105,7 +105,7 @@ Do not log authorization headers or private content. Close owned HTTP clients at
 - Track the access expiry from `expires_in`; use a small client clock margin if proactively refreshing. The server remains authoritative.
 - Protect the token pair as a unit. Associate private caches and pending requests with the current account/session epoch.
 - On restart, coordinate refresh as needed, fetch `/v1/auth/me`, then projects. Handle revoked sessions even if a cached JWT has not reached its expiry.
-- Keep password, Google ID token, email-action token and refresh token out of normal request logs and crash breadcrumbs.
+- Keep password, OTP code, Google ID token, email-action token and refresh token out of normal request logs and crash breadcrumbs.
 
 ### Single-flight refresh algorithm
 
@@ -133,7 +133,22 @@ Each login starts a separate family. Logout revokes the supplied token's family;
 
 ## 5. Email actions and Google setup
 
-### Verification and reset are JSON exchanges
+### Preferred: email OTP without callback links
+
+- Registration: submit email/password to `POST /v1/auth/register/otp`; on generic `202`, open a six-digit code-entry screen.
+- Activation: submit `{email, code}` to `POST /v1/auth/verify-email/otp`; on `200`, show login. No session is issued here.
+- Activation resend: `POST /v1/auth/resend-verification/otp` with email.
+- Recovery: request `POST /v1/auth/password-reset/otp/request` with email, then submit `{email, code, new_password}` to `POST /v1/auth/password-reset/otp/confirm`. No extra verification call/ticket is needed. On success clear local sessions and show login.
+- Codes are strings: preserve leading zeroes. Use numeric keyboard/one-time-code autofill where supported and allow paste of all six digits. Do not put a code in a URL, analytics or logs.
+- A code expires 10 minutes after issuance. A local countdown is guidance, not server authority; account for delivery delay and app restarts. Five wrong submissions exhaust it. Generic `400` means re-enter or request another code, never refresh an access token.
+- Disable resend locally for 60 seconds after a request; the backend also shares its five-send/hour/address allowance across activation/recovery and OTP/link methods. Generic `202` may suppress an actual send, so never promise a fresh code. A newly issued same-purpose action invalidates earlier codes/links.
+- Keep the email in flow state so the user need not retype it; allow correction of a mistaken address. Do not store passwords or codes for session restoration.
+- Password/Google login and refresh are unchanged. No OTP step is added after a successful login.
+
+These routes are independent of a production domain, app association, browser cookies and `EMAIL_ACTION_BASE_URL`. Working SMTP is still required.
+
+### Legacy: verification and reset links
+
 
 Opening an email URL is not itself a backend API success. The app must obtain the opaque action token and submit it to:
 
@@ -144,7 +159,7 @@ These routes do not require a Bearer token. Do not put action tokens into the no
 
 **Current routing gap:** both email purposes use the same configured base URL and append only the `token` query parameter. There is no documented `purpose`, `action` or `type` query discriminator, and the opaque token is not client-decodable. The backend/mobile teams must agree cold-start verification-versus-reset routing before production. Do not invent query parameters or finalize a custom scheme/domain in the client alone.
 
-Verification links expire after 24 hours; reset links after one hour. Both are single-use. A new same-purpose link retires earlier open links. Cooldown/hourly suppression still returns generic acknowledgments.
+Verification links expire after 24 hours; reset links after one hour. Both are single-use. A new same-purpose action, whether OTP or link, retires earlier open codes/links. Cooldown/hourly suppression still returns generic acknowledgments.
 
 ### Google
 

@@ -1,5 +1,13 @@
 # Authentication and Accounts
 
+## Preferred mobile activation and recovery
+
+Email OTP is now available for registration activation and password recovery.
+See [email OTP lifecycle and rollout](email-otp.md) and the
+[complete mobile API contract](../../mobile/api-reference.md#otp-activation-and-recovery-preferred).
+Legacy links described below remain temporarily supported; their lifetimes and
+URL configuration apply to links, not OTP codes. Password and Google login are unchanged.
+
 ## Bounded Google verification
 
 The JSON Google ID-token exchange and successful token response are unchanged.
