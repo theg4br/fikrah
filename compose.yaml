@@ -1,18 +1,18 @@
-x-local-smtp: &local-smtp
-  SMTP_HOST: mailpit
-  SMTP_PORT: "1025"
-  SMTP_FROM: no-reply@fikrah.local
-  SMTP_USERNAME: ""
-  SMTP_PASSWORD: ""
-  SMTP_USE_TLS: "false"
-  SMTP_START_TLS: "false"
+x-smtp: &smtp
+  SMTP_HOST: ${SMTP_HOST:-mailpit}
+  SMTP_PORT: "${SMTP_PORT:-1025}"
+  SMTP_FROM: ${SMTP_FROM:-no-reply@fikrah.local}
+  SMTP_USERNAME: ${SMTP_USERNAME:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  SMTP_USE_TLS: "${SMTP_USE_TLS:-false}"
+  SMTP_START_TLS: "${SMTP_START_TLS:-false}"
 
 x-worker: &worker
   build: .
   env_file:
     - .env
   environment:
-    <<: *local-smtp
+    <<: *smtp
     DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-fikrah}
     REDIS_URL: redis://redis:6379/0
     QDRANT_URL: http://qdrant:6333
@@ -95,7 +95,7 @@ services:
     env_file:
       - .env
     environment:
-      <<: *local-smtp
+      <<: *smtp
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-fikrah}
       REDIS_URL: redis://redis:6379/0
       QDRANT_URL: http://qdrant:6333

@@ -1,6 +1,7 @@
 """Validate local SMTP routing using Compose's own configuration renderer."""
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -10,10 +11,23 @@ import pytest
 
 @pytest.mark.skipif(shutil.which("docker") is None, reason="Docker CLI required")
 @pytest.mark.parametrize("service", ["api", "worker", "email-worker"])
-def test_local_email_senders_share_mailpit(tmp_path: Path, service: str) -> None:
+@pytest.mark.parametrize("external", [False, True])
+def test_email_senders_respect_smtp_configuration(tmp_path: Path, service: str, external: bool) -> None:
     compose = Path(__file__).resolve().parents[1] / "compose.yaml"
     env_file = tmp_path / ".env"
-    env_file.write_text("SMTP_HOST=external.invalid\nSMTP_PORT=465\n")
+    configured = {
+        "SMTP_HOST": "smtp.example.test",
+        "SMTP_PORT": "587",
+        "SMTP_FROM": "FIKRAH <sender@example.test>",
+        "SMTP_USERNAME": "sender@example.test",
+        "SMTP_PASSWORD": "synthetic-$test#password",
+        "SMTP_USE_TLS": "false",
+        "SMTP_START_TLS": "true",
+    }
+    env_file.write_text(
+        "\n".join(f"{key}='{value}'" for key, value in configured.items())
+        if external else ""
+    )
     result = subprocess.run(
         [
             "docker", "compose",
@@ -26,13 +40,15 @@ def test_local_email_senders_share_mailpit(tmp_path: Path, service: str) -> None
         text=True,
         check=True,
         timeout=30,
+        env={key: value for key, value in os.environ.items() if not key.startswith("SMTP_")},
     )
     config = json.loads(result.stdout)["services"][service]
     assert {
-        key: value
+        # Compose's rendered config escapes literal dollars for safe reuse.
+        key: value.replace("$$", "$")
         for key, value in config["environment"].items()
         if key.startswith("SMTP_")
-    } == {
+    } == (configured if external else {
         "SMTP_HOST": "mailpit",
         "SMTP_PORT": "1025",
         "SMTP_FROM": "no-reply@fikrah.local",
@@ -40,5 +56,5 @@ def test_local_email_senders_share_mailpit(tmp_path: Path, service: str) -> None
         "SMTP_PASSWORD": "",
         "SMTP_USE_TLS": "false",
         "SMTP_START_TLS": "false",
-    }
+    })
     assert config["depends_on"]["mailpit"]["condition"] == "service_healthy"
