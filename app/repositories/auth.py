@@ -112,6 +112,23 @@ class AuthRepository:
             query = query.with_for_update().execution_options(populate_existing=True)
         return await db.scalar(query)
 
+    async def find_open_email_otp(
+        self, db: AsyncSession, user_id: UUID, purpose: str
+    ) -> EmailActionToken | None:
+        return await db.scalar(
+            select(EmailActionToken)
+            .where(
+                EmailActionToken.user_id == user_id,
+                EmailActionToken.purpose == purpose,
+                EmailActionToken.otp_digest.is_not(None),
+                EmailActionToken.used_at.is_(None),
+            )
+            .order_by(EmailActionToken.created_at.desc(), EmailActionToken.id.desc())
+            .limit(1)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
     async def find_user_by_google_subject(
         self, db: AsyncSession, subject: object
     ) -> User | None:
