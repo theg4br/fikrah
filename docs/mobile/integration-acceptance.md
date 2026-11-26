@@ -59,6 +59,7 @@ Operation IDs refer to the [endpoint reference](api-reference.md).
 | Conflicting/deleted create retry | N01, N05 | Reused key with different body 409; original key after note deletion 410 when its project remains accessible. |
 | Note list/read/update/delete | N02–N05 | Current project isolation, correct ordering/fields, PATCH reprocessing, deletion 204 and later read 404. |
 | PATCH null semantics | N04 | Omitted title retained; title null clears it; content null/empty patch 422. |
+| Favorites and filtering | N11, N02, N03, K03 | Explicit true/false, same-value retry, server project filtering, current search state, unchanged revision/generation/timestamps and no processing. Missing/foreign note 404; malformed boolean 422. Serialize intents and recover uncertain responses from detail. |
 | Manual processing retry | N06, N03 | Completed/failed queues a generation; pending request does not create another active generation. |
 | Regenerate/accept/reject | N07, N09, N10 | Expected-generation checks; accept changes content; reject retains content; regenerate queues processing. |
 | Stale proposal | N07–N10 | 409 then reload/review; no blind replay of old generation. |
@@ -86,7 +87,7 @@ For provider-backed scenarios, use small synthetic notes with an explicit common
 
 ## 4. Definition of a completed integration
 
-- All 42 application operations are mapped or intentionally excluded from UI scope with an explicit reason.
+- All 43 application operations are mapped or intentionally excluded from UI scope with an explicit reason.
 - Authentication and recovery work without the local web tester.
 - The client handles all documented nullable fields and missing-vs-null PATCH behavior.
 - Each intentional create attempt has one persisted idempotency key.

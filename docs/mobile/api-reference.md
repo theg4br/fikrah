@@ -1,6 +1,6 @@
 # Endpoint reference
 
-**42 application operations**, matching the [OpenAPI snapshot](openapi.json). Paths are relative to the configured API origin.
+**43 application operations**, matching the [OpenAPI snapshot](openapi.json). Paths are relative to the configured API origin.
 
 Each entry states what the operation does, why/when mobile calls it, its inputs and its returned data. Shared response objects and validation rules are defined once in [Data models and errors](data-models-and-errors.md).
 
@@ -292,10 +292,10 @@ Key scope is the authenticated user, not one project. The fingerprint includes p
 
 - **Protected. Purpose:** list all saved notes for a project, including pending/failed ones.
 - **When/why:** open/refresh project notes.
-- **Input:** project UUID; no body/query.
+- **Input:** project UUID; optional query `is_favorite=true` or `is_favorite=false`. Omit it for all notes. No body.
 - **Success:** `200` → full `NoteView[]`, ordered by updated time descending then ID. Empty array is valid.
-- **Additional failures:** `404` project.
-- **Behavior:** full content/proposals are returned; no summary-only/pagination API.
+- **Additional failures:** `404` project; `422` invalid boolean query.
+- **Behavior:** filtering happens in owned-project SQL, not on a partial mobile collection. Full content/proposals are returned; no summary-only/pagination API. Favorite changes preserve timestamps and do not reorder notes.
 
 ### N03 — GET /v1/notes/{note_id}
 
@@ -388,6 +388,26 @@ Key scope is the authenticated user, not one project. The fingerprint includes p
 ```json
 {"expected_processing_generation":1}
 ```
+
+### N11 — PUT /v1/notes/{note_id}/favorite
+
+- **Protected. Purpose:** explicitly set the saved note's favorite state.
+- **When/why:** user stars/unstars a note from its card, detail or search result.
+- **Input:** note UUID and `NoteFavoriteUpdate`: required `is_favorite` JSON boolean. Strings, numbers, null and missing values return `422`.
+- **Success:** `200` → full `NoteView` with the requested `is_favorite` value. All other note fields, including timestamps, remain unchanged by this operation.
+- **Additional failures:** `404` missing/foreign-owned note. An unauthenticated request returns `401`; malformed UUID/body returns `422`.
+- **Concurrency/retry:** row-serialized, last committed value wins; same-value retries are idempotent. No expected revision/ETag or Idempotency-Key is needed. Serialize intents per note; replaying an older opposite intent after a newer one can overwrite it. After a timeout, read N03 before retrying.
+- **Side effects:** no content revision/generation increment, processing, embedding write or LLM quota consumption. State is included in note list/detail/search; deletion removes it with the note.
+
+```json
+{"is_favorite":true}
+```
+
+Unstar using `{"is_favorite":false}`. Read favorites using
+`GET /v1/projects/{project_id}/notes?is_favorite=true`; an empty result is `200 []`.
+An inaccessible note returns `404 {"detail":"Note not found"}`. Successful
+responses use the [NoteView example](data-models-and-errors.md#noteview) with the
+requested boolean; there is no separate favorite collection or toggle endpoint.
 
 ## K. Relationships and search
 
@@ -549,6 +569,6 @@ Client disconnect does not prove absence of a committed exchange. Reload C03. A 
 
 ## Documentation utilities
 
-FastAPI also exposes `GET /docs`, `GET /redoc` and `GET /openapi.json`. They are documentation utilities, excluded from the 42 application-operation count. Their availability is not an auth/session or feature-readiness check.
+FastAPI also exposes `GET /docs`, `GET /redoc` and `GET /openapi.json`. They are documentation utilities, excluded from the 43 application-operation count. Their availability is not an auth/session or feature-readiness check.
 
 For client-side orchestration, code examples and recovery rules continue to [Flutter integration](flutter-integration.md).

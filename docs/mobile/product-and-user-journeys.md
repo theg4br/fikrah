@@ -117,6 +117,17 @@ The backend has no project description, color, icon, count or project-level mode
 
 The placeholder is presentation only. A save can succeed even when an immediate dispatcher notification fails; PostgreSQL holds durable processing work.
 
+### US-08a — Keep a saved note in favorites
+
+The user stars or unstars a saved note. Call N11 with an explicit boolean and use
+the returned `NoteView` as the confirmed state. Favorites are private and survive
+content edits and processing. They do not change content revision/generation,
+timestamps or create processing work. A favorites screen calls N02 with
+`is_favorite=true` within the selected project; empty results are normal.
+Note detail/list and search return the same PostgreSQL-backed boolean. If a write
+times out, reload detail before replaying; serialize per-note intents because
+there is no stale-write conflict protocol. Deleting the note removes its star.
+
 ### US-09 — Edit/reprocess an existing note
 
 Use `PATCH /v1/notes/{note_id}` for title/content changes. Each accepted PATCH increments revision and processing generation and schedules processing, including title-only or unchanged saves. Avoid an automatic request on every keystroke unless that behavior is separately agreed.

@@ -38,6 +38,7 @@ HTTP field names are snake_case. Client models may use local naming conventions 
 | `ProjectInput` — create/rename | `name`: string, 1–120 characters; trimmed; whitespace-only rejected. |
 | `NoteCreate` | `content`: required nonblank text, trimmed; default maximum 100,000 Unicode code points after trimming. `title`: optional/null string, maximum 240 characters, trimmed; blank becomes null. |
 | `NoteUpdate` | At least one of `content` or `title` must be present. `content` must be nonblank/non-null when supplied; `title: null` clears the title. Same text/title constraints as creation. |
+| `NoteFavoriteUpdate` | Required `is_favorite`: strict JSON boolean; no null, string or numeric coercion. This is a separate metadata PUT, not a content PATCH. |
 | `ProposalAction` | `expected_processing_generation`: required integer >= 1. |
 | `ProposalUpdate` | `expected_processing_generation`: integer >= 1; `refinement_proposal`: required nonblank trimmed text, same configured note-text size limit. Implemented route; product requirement remains unresolved. |
 | `SearchRequest` | `query`: required nonblank trimmed string, 1–4,000 characters; `limit`: integer 1–50, defaults to 10. |
@@ -134,6 +135,7 @@ Fields: `id: UUID`, `name: string`, `is_general: boolean`, `created_at: datetime
   "project_id":"11111111-1111-4111-8111-111111111111",
   "title":null,
   "content":"Review neural networks, then batch normalization.",
+  "is_favorite":false,
   "concepts":[],
   "refinement_proposal":null,
   "revision":1,
@@ -150,13 +152,14 @@ Fields: `id: UUID`, `name: string`, `is_general: boolean`, `created_at: datetime
 | `project_id` | UUID | Owning project. |
 | `title` | string or null | User title or generated title; show a presentation placeholder if null. |
 | `content` | string | Authoritative saved text. |
+| `is_favorite` | boolean, non-null | Private favorite state, default false; set explicitly through N11. |
 | `concepts` | array of strings | Derived concepts, normally at most eight after processing. |
 | `refinement_proposal` | string or null | Suggested replacement; distinct from saved content. |
 | `revision` | integer | Saved revision; advances on accepted PATCH/acceptance, including title-only PATCH. |
 | `processing_generation` | integer | Version for processing/proposal actions; must be echoed as expected generation. |
 | `processing_status` | string | Known states: `queued`, `processing`, `completed`, `failed`. |
 | `created_at` | datetime | Creation time, preserved across edits. |
-| `updated_at` | datetime | Last backend update; processing updates can change it too. |
+| `updated_at` | datetime | Last content/processing update; favorite-only writes preserve it. |
 
 A completed result can look like:
 
@@ -166,6 +169,7 @@ A completed result can look like:
   "project_id":"11111111-1111-4111-8111-111111111111",
   "title":"Review neural networks and batch normalization",
   "content":"Review neural networks, then batch normalization.",
+  "is_favorite":true,
   "concepts":["neural networks","batch normalization"],
   "refinement_proposal":"Start by reviewing neural networks, then study batch normalization.",
   "revision":1,
@@ -187,12 +191,13 @@ Existing derived fields can remain in queued/processing/failed responses after r
   "note_id":"22222222-2222-4222-8222-222222222222",
   "title":"Review neural networks and batch normalization",
   "content":"Review neural networks, then batch normalization.",
+  "is_favorite":true,
   "score":0.82,
   "updated_at":"2026-11-23T10:01:08Z"
 }
 ```
 
-Fields: `note_id: UUID`, `title: string|null`, `content: string`, `score: number`, `updated_at: datetime`. Returned as an ordered array. No guaranteed score threshold or exact-match interpretation.
+Fields: `note_id: UUID`, `title: string|null`, `content: string`, `is_favorite: boolean`, `score: number`, `updated_at: datetime`. Favorite state comes from current PostgreSQL data, not vector metadata. Returned as an ordered array. No guaranteed score threshold or exact-match interpretation.
 
 ### RelatedNoteView and ProjectGraph
 

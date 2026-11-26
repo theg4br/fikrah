@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import delete, insert, inspect, select, text, update
+from sqlalchemy import MetaData, Table, delete, insert, inspect, select, text, update
 from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from app.db.base import Base
@@ -25,7 +25,9 @@ from app.models import (
 PREVIOUS_REVISION = "20261121_02"
 
 
-def seed_owners(engine):
+def seed_owners(engine, *, historical=False):
+    # Historical revisions must not inherit defaults for newer ORM columns.
+    notes = Table("notes", MetaData(), autoload_with=engine) if historical else Note
     ids = {
         name: uuid4()
         for name in (
@@ -69,7 +71,7 @@ def seed_owners(engine):
             ],
         )
         db.execute(
-            insert(Note),
+            insert(notes),
             [
                 {
                     "id": ids["note"],
@@ -285,7 +287,7 @@ def test_owner_constraints_preserve_deletion_cascades(ownership_case, parent):
 def test_populated_migration_round_trip_preserves_records(postgres_engine):
     config = Config("alembic.ini")
     command.upgrade(config, PREVIOUS_REVISION)
-    ids = seed_owners(postgres_engine)
+    ids = seed_owners(postgres_engine, historical=True)
     command.upgrade(config, "head")
     assert_ownership_constraints(postgres_engine)
     with postgres_engine.connect() as db:
@@ -325,7 +327,7 @@ def test_migration_aborts_on_invalid_legacy_data_without_repairing_it(
 ):
     config = Config("alembic.ini")
     command.upgrade(config, PREVIOUS_REVISION)
-    ids = seed_owners(postgres_engine)
+    ids = seed_owners(postgres_engine, historical=True)
     invalid_id = uuid4()
     model = Note if invalid_table == "notes" else ChatConversation
     values = {
@@ -338,7 +340,8 @@ def test_migration_aborts_on_invalid_legacy_data_without_repairing_it(
             "Private fixture content must never appear in the preflight error"
         )
     with postgres_engine.begin() as db:
-        db.execute(insert(model).values(**values))
+        historical_table = Table(invalid_table, MetaData(), autoload_with=db)
+        db.execute(insert(historical_table).values(**values))
     with pytest.raises(
         DBAPIError, match="Project ownership preflight failed"
     ) as caught:

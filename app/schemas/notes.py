@@ -51,6 +51,10 @@ class ProposalAction(BaseModel):
     expected_processing_generation: int = Field(ge=1)
 
 
+class NoteFavoriteUpdate(BaseModel):
+    is_favorite: bool = Field(strict=True)
+
+
 class ProposalUpdate(ProposalAction):
     refinement_proposal: str = Field(min_length=1)
 
@@ -70,6 +74,7 @@ class NoteView(BaseModel):
     project_id: UUID
     title: str | None
     content: str
+    is_favorite: bool
     concepts: list[str]
     refinement_proposal: str | None
     revision: int
