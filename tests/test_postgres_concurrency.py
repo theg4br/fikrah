@@ -107,6 +107,7 @@ async def test_first_google_requests_create_one_account(postgres_case, monkeypat
         google_client_id=lambda: "test-client",
         verify_google_id_token=lambda *_: {
             "sub": "simultaneous-google-subject",
+            "name": "Simultaneous Google User",
             "email": "simultaneous@gmail.com",
             "email_verified": True,
         },
