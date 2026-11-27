@@ -21,7 +21,7 @@ business rules and LLM orchestration. Flutter owns presentation and device APIs.
 | Six-digit activation/recovery | Implemented, including leading zeroes, lifecycle limits, one-use validation, resend replacement and reset session revocation. | Mobile should adopt the documented OTP routes. Additional challenge metadata requires a separately agreed contract. |
 | Favorite notes and server filters | Approved and implemented in this change; see N11/N02 and the favorite field in note/search DTOs. | Apply migration `20261126_02` before using the updated API. |
 | User categories | Account-wide ownership and one optional category per note approved; persistence/API not implemented. | Agree lifecycle details, then add category CRUD, assignment and suggestions. |
-| Profile, interests, goals | `/v1/auth/me` returns identity and verification state only. | Define profile/preferences independently from authentication credentials. |
+| Profile, interests, goals | `GET /v1/auth/me` returns identity, verification and nullable display name; `PATCH /v1/auth/me` updates the name only. | Define profile/preferences independently from authentication credentials. |
 | Activity/achievements | Note timestamps and real persisted connections exist; no activity ledger, streak or achievement API exists. | Agree qualifying events/calendar/counting first; implement authoritative computation afterward. |
 | Reminders | No synchronized reminder preferences or notification delivery contract exists. | Decide local-only versus synchronized preferences; OS scheduling stays on mobile. |
 | Existing knowledge behavior | Explicit saves, idempotent creation, processing polling, generation-aware proposals, project search, graph and streamed chat exist. | Preserve these contracts; no prototype autosave, Undo, arbitrary-code acceptance or local answer engine. |
@@ -32,7 +32,7 @@ See [OTP activation and recovery](api-reference.md#otp-activation-and-recovery-p
 for DTOs, routes, statuses and examples, and
 [OTP lifecycle implementation](../features/authentication/email-otp.md).
 
-- Signup: `POST /v1/auth/register/otp` with email/password, generic `202`.
+- Signup: `POST /v1/auth/register/otp` with name/email/password, generic `202`.
 - Activation: `POST /v1/auth/verify-email/otp` with email/code, `200` on success.
 - Activation resend: `POST /v1/auth/resend-verification/otp`, generic `202`.
 - Recovery request: `POST /v1/auth/password-reset/otp/request`, generic `202`.

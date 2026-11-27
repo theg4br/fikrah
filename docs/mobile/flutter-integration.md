@@ -135,7 +135,7 @@ Each login starts a separate family. Logout revokes the supplied token's family;
 
 ### Preferred: email OTP without callback links
 
-- Registration: submit email/password to `POST /v1/auth/register/otp`; on generic `202`, open a six-digit code-entry screen.
+- Registration: submit name/email/password to `POST /v1/auth/register/otp`; on generic `202`, open a six-digit code-entry screen.
 - Activation: submit `{email, code}` to `POST /v1/auth/verify-email/otp`; on `200`, show login. No session is issued here.
 - Activation resend: `POST /v1/auth/resend-verification/otp` with email.
 - Recovery: request `POST /v1/auth/password-reset/otp/request` with email, then submit `{email, code, new_password}` to `POST /v1/auth/password-reset/otp/confirm`. No extra verification call/ticket is needed. On success clear local sessions and show login.
@@ -143,7 +143,7 @@ Each login starts a separate family. Logout revokes the supplied token's family;
 - A code expires 10 minutes after issuance. A local countdown is guidance, not server authority; account for delivery delay and app restarts. Five wrong submissions exhaust it. Generic `400` means re-enter or request another code, never refresh an access token.
 - Disable resend locally for 60 seconds after a request; the backend also shares its five-send/hour/address allowance across activation/recovery and OTP/link methods. Generic `202` may suppress an actual send, so never promise a fresh code. A newly issued same-purpose action invalidates earlier codes/links.
 - Keep the email in flow state so the user need not retype it; allow correction of a mistaken address. Do not store passwords or codes for session restoration.
-- Password/Google login and refresh are unchanged. No OTP step is added after a successful login.
+- Password login and refresh are unchanged. Google name recovery is described below. No OTP step is added after a successful login.
 
 These routes are independent of a production domain, app association, browser cookies and `EMAIL_ACTION_BASE_URL`. Working SMTP is still required.
 
@@ -164,6 +164,8 @@ Verification links expire after 24 hours; reset links after one hour. Both are s
 ### Google
 
 The platform Google setup must obtain an ID token whose audience matches the backend configuration. Send it as JSON to `POST /v1/auth/google`; retain only the FIKRAH token pair for API authorization.
+
+Use the name from the verified Google token when available. If a new account receives `422` with detail `Name is required to create an account`, ask for a name and repeat the exchange with `id_token` and `name`; this is not a token-refresh failure. Existing accounts may return `name: null` from `/me`; offer name completion through `PATCH /v1/auth/me` without preventing session restoration. Render names as text, never HTML.
 
 The backend currently accepts one configured audience. Android/iOS platform IDs/signing fingerprints and plugin configuration are separate platform work, not endpoints or secret values supplied by this handbook. No browser session or testing website callback is required for mobile exchange. [Google backend authentication](https://developers.google.com/identity/sign-in/web/backend-auth).
 
