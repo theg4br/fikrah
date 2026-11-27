@@ -41,6 +41,8 @@ printf "FIKRAH_IMAGE='%s'\n" "$image" >"$release_dir/release.env"
 image_id=$(docker image inspect --format '{{.Id}}' "$image")
 python3 - "$release_dir" "$revision" "$image" "$image_id" "$base_ref" <<'PY'
 import hashlib, json, pathlib, sys
+sys.path.insert(0, str(pathlib.Path.cwd() / "infra/azure-vm"))
+from package_ci_release import exported_image_metadata
 root = pathlib.Path(sys.argv[1])
 files = {}
 for file in sorted(root.iterdir()):
@@ -50,6 +52,7 @@ for file in sorted(root.iterdir()):
 (root / 'release.json').write_text(json.dumps({
     'revision': sys.argv[2], 'image': sys.argv[3], 'image_id': sys.argv[4],
     'architecture': 'amd64', 'base_image': sys.argv[5], 'files': files,
+    **exported_image_metadata(root / 'image.tar.gz'),
 }, indent=2) + '\n')
 PY
 echo "Packaged immutable release $revision. Bundle contains no runtime credentials."

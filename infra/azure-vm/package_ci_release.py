@@ -30,6 +30,17 @@ def export_image(image: str, destination: Path) -> None:
                 save.wait()
 
 
+def exported_image_metadata(archive: Path) -> dict:
+    """Record config and rootfs identity independently of Docker's image store."""
+    with tarfile.open(archive, "r:gz") as source:
+        manifest = json.load(source.extractfile("manifest.json"))
+        if len(manifest) != 1:
+            raise ValueError("Expected exactly one exported image")
+        content = source.extractfile(manifest[0]["Config"]).read()
+        return {"image_config_digest": "sha256:" + hashlib.sha256(content).hexdigest(),
+                "image_config": json.loads(content)}
+
+
 def package(image: str, revision: str, output: Path) -> Path:
     if not re.fullmatch(r"[0-9a-f]{40}", revision):
         raise ValueError("Expected a full Git commit SHA")
@@ -54,6 +65,7 @@ def package(image: str, revision: str, output: Path) -> Path:
     (stage / "release.json").write_text(json.dumps({
         "revision": revision, "image": f"fikrah:{revision}",
         "image_id": inspected["Id"], "architecture": "amd64", "files": files,
+        **exported_image_metadata(stage / "image.tar.gz"),
     }, indent=2) + "\n")
     archive = output / "fikrah-release.tar.gz"
     with tarfile.open(archive, "x:gz", compresslevel=1) as target:

@@ -41,7 +41,18 @@ import json, pathlib, subprocess, sys
 root = pathlib.Path(sys.argv[1])
 manifest = json.loads((root / 'release.json').read_text())
 image = json.loads(subprocess.check_output(['docker','image','inspect',manifest['image']]))[0]
-assert image['Id'] == manifest['image_id'], 'Loaded image ID differs from package'
+expected = manifest.get('image_config')
+if expected is None:
+    assert image['Id'] == manifest['image_id'], 'Loaded image ID differs from package'
+else:
+    # containerd/classic stores expose different IDs after docker save/load.
+    # Verify the full runtime config and uncompressed layer digests instead.
+    assert image['Architecture'] == expected['architecture'], 'Image architecture differs'
+    assert image['Os'] == expected['os'], 'Image operating system differs'
+    assert image['RootFS']['Type'] == expected['rootfs']['type'], 'Rootfs type differs'
+    assert image['RootFS']['Layers'] == expected['rootfs']['diff_ids'], 'Image content differs'
+    keys = set(image['Config']) | set(expected['config'])
+    assert all(image['Config'].get(key) == expected['config'].get(key) for key in keys), 'Image runtime config differs'
 assert image['Architecture'] == 'amd64', 'Wrong image platform'
 assert image['Config']['Labels']['org.opencontainers.image.revision'] == manifest['revision'], 'Wrong source revision'
 PY
