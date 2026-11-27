@@ -39,3 +39,9 @@ The current release is identified by `/opt/fikrah/current/release.json`, not by 
 There is one VM and one data disk. Backups and scheduled backup downtime were removed at the user's request. Losing the disk can lose data. No autoscaling, additional managed database, cross-region recovery or paid monitoring service is configured.
 
 Check `/ready` if a demo request fails. Provider latency and SMTP latency remain external to VM placement. The fixed initial VM size is adequate for the observed small acceptance flow, not a load-tested concurrency guarantee.
+
+## Acceptance boundaries
+
+CI checks the complete backend suite, migrations, startup, task registration and deployment tooling. The deployment job requires guest and public HTTPS readiness before success. Use its run results and the live release manifest rather than historical validation totals.
+
+Real Flutter/Google ID-token acceptance, representative load and a host reboot rehearsal remain unverified. SMTP acceptance does not prove inbox placement; initial auth email submission awaits SMTP and can add latency. The GitHub environment is named `production`; the single-VM availability and data-loss limits above still apply.
