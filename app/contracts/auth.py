@@ -1,12 +1,31 @@
 """Framework-independent data contracts for authentication use cases."""
 
 from dataclasses import dataclass
+from uuid import UUID
 
 
 @dataclass(frozen=True, slots=True)
 class EmailPassword:
     email: str
     password: str
+
+
+@dataclass(frozen=True, slots=True)
+class RegisterAccount(EmailPassword):
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
+class UpdateProfileName:
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
+class AccountProfile:
+    id: UUID
+    email: str
+    email_verified: bool
+    name: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +52,7 @@ class PasswordResetOtp(EmailOtpConfirmation):
 @dataclass(frozen=True, slots=True)
 class GoogleIdentityToken:
     id_token: str
+    name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -27,7 +27,7 @@ async def test_email_auth_verification_refresh_and_logout(
     password = "a secure passphrase with length"
 
     registration = await auth_client.post(
-        "/v1/auth/register", json={"email": email, "password": password}
+        "/v1/auth/register", json={"name": "Fikrah User", "email": email, "password": password}
     )
     assert registration.status_code == 202
     assert delivered[0][0] == email.lower()
@@ -140,6 +140,7 @@ async def test_google_link_discards_unverified_local_password(
     credentials = {
         "email": "pre-registered@gmail.com",
         "password": "a password chosen by somebody else",
+        "name": "Registered User",
     }
     assert (await auth_client.post("/v1/auth/register", json=credentials)).status_code == 202
     assert (await auth_client.post("/v1/auth/login", json=credentials)).status_code == 403
@@ -171,6 +172,7 @@ async def test_google_login_requires_verified_email_and_issues_fikrah_tokens(
         assert audience == "mobile-client-id"
         return {
             "sub": "google-user-1",
+            "name": "Google User",
             "email": "google.user@example.com",
             "email_verified": True,
             "hd": "example.com",
@@ -225,7 +227,7 @@ async def test_password_reset_revokes_existing_refresh_sessions(
     old_password = "a secure passphrase before reset"
     new_password = "a secure passphrase after reset"
     registration = await auth_client.post(
-        "/v1/auth/register", json={"email": email, "password": old_password}
+        "/v1/auth/register", json={"name": "Reset User", "email": email, "password": old_password}
     )
     assert registration.status_code == 202
     verification = await auth_client.post(
@@ -291,7 +293,7 @@ async def test_resend_verification_replaces_previous_link(
     email = "resend-user@example.com"
     registration = await auth_client.post(
         "/v1/auth/register",
-        json={"email": email, "password": "a secure passphrase for resend"},
+        json={"name": "Resend User", "email": email, "password": "a secure passphrase for resend"},
     )
     assert registration.status_code == 202
 
@@ -333,7 +335,7 @@ async def test_previously_linked_subject_can_sign_in_without_email_authority(
 ):
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "mobile-client-id")
     claims = {
-        "sub": "previously-linked", "email": "linked@example.com",
+        "name": "Linked User", "sub": "previously-linked", "email": "linked@example.com",
         "email_verified": True, "hd": "example.com",
     }
     monkeypatch.setattr(
@@ -365,7 +367,7 @@ async def _verified_test_account(client, monkeypatch):
 
     monkeypatch.setattr("app.infrastructure.container.auth_service.send_action_email", send)
     monkeypatch.setattr("app.infrastructure.container.auth_service.send_welcome_email", welcome)
-    credentials = {"email": "session-owner@example.com", "password": "secure session test passphrase"}
+    credentials = {"name": "Session Owner", "email": "session-owner@example.com", "password": "secure session test passphrase"}
     assert (await client.post("/v1/auth/register", json=credentials)).status_code == 202
     assert (await client.post("/v1/auth/verify-email", json={"token": delivered[0]})).status_code == 200
     return credentials

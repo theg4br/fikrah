@@ -17,6 +17,8 @@ from app.contracts.auth import (
     PasswordReset,
     PasswordResetOtp,
     RefreshToken,
+    RegisterAccount,
+    UpdateProfileName,
 )
 from app.schemas.auth import (
     AuthTokens,
@@ -25,7 +27,9 @@ from app.schemas.auth import (
     EmailRequest,
     GoogleLoginRequest,
     Message,
+    ProfileNameUpdate,
     RefreshRequest,
+    Registration,
     ResetPasswordOtpRequest,
     ResetPasswordRequest,
     TokenRequest,
@@ -47,6 +51,7 @@ AUTH_FAILURE_STATUSES = {
     AuthFailure.GOOGLE_IDENTITY_CONFLICT: 409,
     AuthFailure.GOOGLE_UNAVAILABLE: 503,
     AuthFailure.GOOGLE_BUSY: 429,
+    AuthFailure.NAME_REQUIRED: 422,
     AuthFailure.INVALID_REFRESH_TOKEN: 401,
     AuthFailure.LOGIN_BUDGET_EXCEEDED: 429,
     AuthFailure.LOGIN_BUDGET_UNAVAILABLE: 503,
@@ -87,22 +92,22 @@ async def _tokens(workflow: Awaitable[AuthTokenPair]) -> AuthTokens:
 
 @router.post("/register", response_model=Message, status_code=status.HTTP_202_ACCEPTED)
 async def register(
-    body: Credentials, db: Db, service: AuthServiceDependency
+    body: Registration, db: Db, service: AuthServiceDependency
 ) -> Message:
     return await _message(
         service.register(
-            EmailPassword(email=str(body.email), password=body.password), db
+            RegisterAccount(email=str(body.email), password=body.password, name=body.name), db
         )
     )
 
 
 @router.post("/register/otp", response_model=Message, status_code=status.HTTP_202_ACCEPTED)
 async def register_with_otp(
-    body: Credentials, db: Db, service: AuthServiceDependency
+    body: Registration, db: Db, service: AuthServiceDependency
 ) -> Message:
     """Create an account and email a six-digit activation code; then verify and log in."""
     return await _message(service.register(
-        EmailPassword(email=str(body.email), password=body.password), db, use_otp=True
+        RegisterAccount(email=str(body.email), password=body.password, name=body.name), db, use_otp=True
     ))
 
 
@@ -173,6 +178,7 @@ async def enforce_google_budget(request: Request) -> None:
 @router.post(
     "/google", response_model=AuthTokens, dependencies=[Depends(enforce_google_budget)],
     responses={401: {"description": "Invalid Google identity"},
+               422: {"description": "Invalid request or name required for a new account"},
                429: {"description": "Attempt limit or verification capacity exceeded"},
                503: {"description": "Verification dependency is unavailable"}},
 )
@@ -180,7 +186,7 @@ async def google_login(
     body: GoogleLoginRequest, db: Db, service: AuthServiceDependency
 ) -> AuthTokens:
     return await _tokens(
-        service.google_login(GoogleIdentityToken(id_token=body.id_token), db)
+        service.google_login(GoogleIdentityToken(id_token=body.id_token, name=body.name), db)
     )
 
 
@@ -249,5 +255,21 @@ async def logout(
 @router.get("/me", response_model=UserView)
 async def read_current_user(user: AuthenticatedUser) -> UserView:
     return UserView(
-        id=user.id, email=user.email, email_verified=user.email_verified_at is not None
+        id=user.id, email=user.email, email_verified=user.email_verified_at is not None,
+        name=user.name,
+    )
+
+
+@router.patch("/me", response_model=UserView)
+async def update_current_user_name(
+    body: ProfileNameUpdate, user: AuthenticatedUser, db: Db,
+    service: AuthServiceDependency,
+) -> UserView:
+    """Set the current account's display name; credentials and sessions are unchanged."""
+    result = await _execute(service.update_profile_name(
+        user.id, UpdateProfileName(name=body.name), db
+    ))
+    return UserView(
+        id=result.id, email=result.email, email_verified=result.email_verified,
+        name=result.name,
     )
