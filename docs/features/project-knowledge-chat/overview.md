@@ -82,3 +82,7 @@ Tests cover conversation persistence, automatic titles, project/user isolation, 
 Before saving an answer, every retrieved citation is rechecked against current note state/revision. If any cited note changed or disappeared during generation, the entire generated answer is discarded, even when another citation remains valid. The service produces an unsupported response instead of retaining claims from invalidated evidence.
 
 Every successful message transaction advances the conversation activity timestamp, including conversations with a user-provided title. Conversation lists therefore reflect the latest successful exchange.
+
+## Invalidated evidence and localized refusals
+
+If a supported generation has no valid citations, the service discards it and requests a brief unsupported answer in the question's language without note evidence. Database locks are released during generation; conversation concurrency is rechecked before saving. The fallback must be nonempty and unsupported, otherwise the request fails with `503`. It neither creates a supported-language allowlist nor permits general factual answers outside the project.

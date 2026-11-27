@@ -104,7 +104,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment:
-      name: demo
+      name: production
       url: https://fikrah-api-23107c84.austriaeast.cloudapp.azure.com/docs
     permissions:
       contents: write

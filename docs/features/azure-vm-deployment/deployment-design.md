@@ -14,4 +14,4 @@ The fixed estimate is approximately USD39.99/month at 730 hours, plus disk trans
 
 The existing VM managed identity and container metadata firewall are harmless host configuration, not a running backup service. They do not add a paid resource. Application configuration stays private under `/etc/fikrah`; credentials are never committed.
 
-See [operations](operations-runbook.md) and [validation](validation-results.md).
+See the [operator runbook](operations-runbook.md) and [main-only delivery](../continuous-delivery/main-only-deployment.md).
