@@ -2,7 +2,7 @@
 
 This is the starting point for the Flutter team. It describes the **implemented backend contract**, the user journeys it supports, and the decisions still needed before release.
 
-**Contract baseline:** email OTP activation/recovery and saved note favorites, reviewed on 26 November 2026; requires migration `20261126_02`. Documentation changes do not imply that an existing running server has been upgraded to this revision.
+**Contract baseline:** email OTP activation/recovery, saved note favorites and account display names, reviewed on 27 November 2026; requires migration `20261127_01`. Documentation changes do not imply that an existing running server has been upgraded to this revision.
 
 ## Read in this order
 
@@ -10,7 +10,7 @@ This is the starting point for the Flutter team. It describes the **implemented 
 | --- | --- |
 | [Product and user journeys](product-and-user-journeys.md) | What FIKRAH does, ownership boundaries, each user story and its call sequence. |
 | [Data models and errors](data-models-and-errors.md) | Exact field names, nullability, limits, timestamps, status codes and client recovery behavior. |
-| [Endpoint reference](api-reference.md) | Every one of the 43 application operations: purpose, trigger, request, success result and additional failure cases. |
+| [Endpoint reference](api-reference.md) | Every one of the 44 application operations: purpose, trigger, request, success result and additional failure cases. |
 | [Flutter integration](flutter-integration.md) | Base URL setup, session/refresh coordination, idempotency, polling, streaming, audio upload and local state. |
 | [Integration acceptance and open decisions](integration-acceptance.md) | A practical handover checklist, known gaps and decisions that must not be guessed. |
 | [OpenAPI snapshot](openapi.json) | Importable schema generated from this source revision; useful for API clients and model generation. |
@@ -20,7 +20,7 @@ Field definitions and example response objects live in the data-model document. 
 ## First successful session
 
 1. Obtain a reachable backend base URL from the backend team. The current demo base URL is `https://fikrah-api-23107c84.austriaeast.cloudapp.azure.com`; see the [operator runbook](../features/azure-vm-deployment/operations-runbook.md) for deployment limits.
-2. Register using `/v1/auth/register/otp`, enter the emailed six-digit code at `/v1/auth/verify-email/otp`, then log in; or obtain a Google ID token and exchange it.
+2. Collect a name and register using `/v1/auth/register/otp`, enter the emailed six-digit code at `/v1/auth/verify-email/otp`, then log in; or obtain a Google ID token and exchange it.
 3. Store the returned FIKRAH access/refresh pair securely.
 4. Fetch `GET /v1/auth/me` and `GET /v1/projects`.
 5. Select the project with `is_general: true`; save its ID, not its name.
@@ -36,6 +36,7 @@ Saving is immediate; LLM processing is asynchronous. A successful save response 
 - Native Flutter calls the backend directly using JSON and `Authorization: Bearer <access_token>`. The local web tester's cookies/proxy are not part of the mobile protocol.
 - The backend determines the user from the token. Do not send `user_id`, database credentials or model-provider keys.
 - Every note belongs to one selected project. Start in General, identified by `is_general`.
+- New registrations require `name`; existing accounts may return null and can complete it through `PATCH /v1/auth/me`. There is no username.
 - IDs and timestamps come from the backend. A title can temporarily be null while processing.
 - A proposal is not the saved note content. Only acceptance replaces content.
 - Keep the latest `processing_generation` when taking proposal actions.
@@ -44,7 +45,7 @@ Saving is immediate; LLM processing is asynchronous. A successful save response 
 - Chat deltas are previews. Only the final `complete` event is the saved authoritative exchange.
 - The graph API provides actual relationships. Mobile owns layout, colors, clusters and gestures.
 - PDF binaries stay on-device; there is no PDF upload/extraction endpoint. Optional audio transcription is a separate endpoint returning text.
-- Lists are arrays without pagination envelopes. No invented cursor, total count, note-moving route, profile route or account-deletion route exists.
+- Lists are arrays without pagination envelopes. No invented cursor, total count, note-moving route, profile-image/preferences route or account-deletion route exists.
 
 ## Important current integration gaps
 

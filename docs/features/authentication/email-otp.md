@@ -63,7 +63,7 @@ starting the updated API and email workers. Do not mix old/new workers: old mail
 adapters cannot deliver OTP-purpose intents.
 
 Use the new OTP routes explicitly; existing `/register` and link routes retain
-their legacy behavior. Migration timing for mobile clients and eventual removal
+their legacy link behavior. Both registration routes now require the [account display name](account-display-name.md). Migration timing for mobile clients and eventual removal
 of legacy routes require a separate decision.
 
 ## Verification

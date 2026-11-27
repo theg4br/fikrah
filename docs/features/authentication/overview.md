@@ -68,7 +68,7 @@ All routes use `/v1/auth`. JSON is used for requests and responses. Tokens are o
 
 | Endpoint | Purpose and mobile call timing | Request | Response |
 | --- | --- | --- | --- |
-| `POST /register` | Create an email/password account and send verification. Call from the sign-up flow. | `{ "email": "person@example.com", "password": "..." }` | `202` with a generic message that avoids account enumeration. |
+| `POST /register` | Create an email/password account and send verification. Call from the sign-up flow. | `{ "name": "Person Name", "email": "person@example.com", "password": "..." }` | `202` with a generic message that avoids account enumeration. |
 | `POST /verify-email` | Consume the one-time token from the verification link. Call when the user opens that link in the app. | `{ "token": "..." }` | `{ "message": "Email verified" }` |
 | `POST /resend-verification` | Request another verification link. Call when the user asks to resend. | `{ "email": "person@example.com" }` | `202` with a generic message. |
 | `POST /login` | Authenticate an email/password account. Call from sign-in. | `{ "email": "...", "password": "..." }` | Access token, refresh token, bearer type, and `expires_in: 900`. |
@@ -77,7 +77,7 @@ All routes use `/v1/auth`. JSON is used for requests and responses. Tokens are o
 | `POST /password-reset/confirm` | Replace the password using the reset link. | `{ "token": "...", "new_password": "..." }` | `{ "message": "Password reset successfully" }`; all existing access and refresh sessions are revoked immediately. |
 | `POST /refresh` | Rotate a refresh token and issue a fresh access/refresh pair. Call after an access-token expiry. | `{ "refresh_token": "..." }` | New token pair. The submitted refresh token is revoked. |
 | `POST /logout` | Revoke the current access/refresh session family. Call when the user signs out. | `{ "refresh_token": "..." }` | `{ "message": "Signed out" }` |
-| `GET /me` | Load the authenticated user's account summary. Call after sign-in or when restoring a session. | `Authorization: Bearer <access_token>` | `{ "id": "...", "email": "...", "email_verified": true }` |
+| `GET /me` | Load the authenticated user's account summary. Call after sign-in or when restoring a session. | `Authorization: Bearer <access_token>` | `{ "id": "...", "email": "...", "email_verified": true, "name": "Person Name" }` |
 
 ### Mobile Integration Notes
 
@@ -144,3 +144,5 @@ Migration `20261121_02` adds `email_deliveries`. Registration, verification rese
 A sender claims a delivery for 60 seconds and fences acknowledgement with a unique claim token. Failures back off from 60 seconds up to one hour. Expired or retired action links are cancelled before sending. Sending is at least once: a crash after SMTP accepts a message but before acknowledgement can cause a duplicate. SMTP acceptance also does not guarantee arrival in the recipient's inbox.
 
 Pending action tokens use Fernet authenticated encryption, with a separate HKDF domain derived from the private `FIKRAH_JWT_SECRET`; no new environment variable is needed. Rotating that secret invalidates old encrypted pending links, so affected users must request a fresh verification/reset email. Neither raw tokens nor ciphertext appear in delivery logs. Retention of completed delivery records remains an operations decision.
+
+Account display-name rules, Google missing-name recovery and authenticated profile updates are defined in [account names](account-display-name.md). Password/Google remain the login methods; there is no username.

@@ -16,7 +16,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Credentials"
+                "$ref": "#/components/schemas/Registration"
               }
             }
           },
@@ -58,7 +58,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Credentials"
+                "$ref": "#/components/schemas/Registration"
               }
             }
           },
@@ -329,21 +329,14 @@
           "401": {
             "description": "Invalid Google identity"
           },
+          "422": {
+            "description": "Invalid request or name required for a new account"
+          },
           "429": {
             "description": "Attempt limit or verification capacity exceeded"
           },
           "503": {
             "description": "Verification dependency is unavailable"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
         }
       }
@@ -616,6 +609,51 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UserView"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "authentication"
+        ],
+        "summary": "Update Current User Name",
+        "description": "Set the current account's display name; credentials and sessions are unchanged.",
+        "operationId": "update_current_user_name_v1_auth_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileNameUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -2264,6 +2302,19 @@
             "maxLength": 8192,
             "minLength": 20,
             "title": "Id Token"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
           }
         },
         "type": "object",
@@ -2608,6 +2659,22 @@
         ],
         "title": "NoteView"
       },
+      "ProfileNameUpdate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ProfileNameUpdate"
+      },
       "ProjectGraph": {
         "properties": {
           "nodes": {
@@ -2754,6 +2821,34 @@
           "refresh_token"
         ],
         "title": "RefreshRequest"
+      },
+      "Registration": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 5,
+            "title": "Password"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password",
+          "name"
+        ],
+        "title": "Registration"
       },
       "RelatedNoteView": {
         "properties": {
@@ -2984,13 +3079,25 @@
           "email_verified": {
             "type": "boolean",
             "title": "Email Verified"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
           }
         },
         "type": "object",
         "required": [
           "id",
           "email",
-          "email_verified"
+          "email_verified",
+          "name"
         ],
         "title": "UserView"
       },

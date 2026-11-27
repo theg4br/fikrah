@@ -8,7 +8,7 @@ import pytest_asyncio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.contracts.auth import ActionToken, EmailPassword, GoogleIdentityToken
+from app.contracts.auth import ActionToken, GoogleIdentityToken, RegisterAccount
 from app.core.security import hash_opaque_token
 from app.db.base import Base
 from app.infrastructure.email.cipher import protect_email_token, reveal_email_token
@@ -50,6 +50,7 @@ async def outbox_case(tmp_path, monkeypatch):
         google_client_id=lambda: "test-client",
         verify_google_id_token=lambda *_: {
             "sub": "google-outbox",
+            "name": "Google Outbox User",
             "email": "outbox@gmail.com",
             "email_verified": True,
         },
@@ -67,7 +68,8 @@ async def test_smtp_outage_preserves_account_and_recovers_encrypted_emails(outbo
     async with sessions() as db:
         state["db"] = db
         result = await auth.register(
-            EmailPassword(
+            RegisterAccount(
+                name="Outbox User",
                 email="durable@example.com",
                 password="an email outbox safe test password",
             ),
@@ -107,7 +109,8 @@ async def test_outbox_does_not_send_retired_action_link(outbox_case):
     async with sessions() as db:
         state["db"] = db
         await auth.register(
-            EmailPassword(
+            RegisterAccount(
+                name="Outbox User",
                 email="retired@example.com",
                 password="another safe outbox test password",
             ),

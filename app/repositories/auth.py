@@ -160,6 +160,15 @@ class AuthRepository:
             .limit(1)
         )
 
+    async def update_user_name(
+        self, db: AsyncSession, user_id: UUID, name: str
+    ) -> User | None:
+        user = await self.get_user(db, user_id, lock=True)
+        if user is not None:
+            user.name = name
+            await db.flush()
+        return user
+
     async def revoke_refresh_family(
         self, db: AsyncSession, user_id: UUID, family_id: UUID, now: datetime
     ) -> None:

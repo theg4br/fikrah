@@ -13,6 +13,7 @@ class AuthFailure(StrEnum):
     GOOGLE_IDENTITY_CONFLICT = "google_identity_conflict"
     GOOGLE_UNAVAILABLE = "google_unavailable"
     GOOGLE_BUSY = "google_busy"
+    NAME_REQUIRED = "name_required"
     INVALID_REFRESH_TOKEN = "invalid_refresh_token"
     LOGIN_BUDGET_EXCEEDED = "login_budget_exceeded"
     LOGIN_BUDGET_UNAVAILABLE = "login_budget_unavailable"

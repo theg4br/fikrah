@@ -41,7 +41,7 @@ The architecture is a layered modular backend: HTTP routes/schemas → services 
 
 **As a new user**, I want a private account and a default knowledge space.
 
-1. Submit `POST /v1/auth/register/otp`.
+1. Collect name, email and password; submit `POST /v1/auth/register/otp`. Name is required for new accounts and may repeat across users.
 2. On `202`, show a check-email state, not a logged-in workspace.
 3. Registration creates a verification intent and a welcome email for a new eligible account. Delivery can be deferred.
 4. Show a six-digit code entry screen; the user reads the code from email.
@@ -71,12 +71,16 @@ On app restart, restore protected credentials, refresh once if appropriate, then
 
 1. Mobile completes native Google sign-in.
 2. Send the **Google ID token**, not an access token, email address or server auth code, to `POST /v1/auth/google`.
-3. Backend validates issuer/audience/signature and its account-linking policy, then returns a normal FIKRAH token pair.
+3. Backend validates issuer/audience/signature and its account-linking policy, uses the verified Google display name for a new account, then returns a normal FIKRAH token pair. If the token has no usable name, `422` requests one: collect it and repeat the exchange with `name` alongside `id_token`. No account is created by the failed attempt.
 4. Continue with the same workspace bootstrap as password login.
 
 New linking/account creation requires a verified Gmail address or verified Workspace authority. Previously linked subjects are treated by the implemented identity rules. A conflicting Google identity returns `409`; unsupported/unverified identity returns `401`. Linking an unverified password account discards its unverified password and old action links; do not assume that old password becomes valid.
 
 **Acceptance:** Google authentication is not Firebase authentication, and Google credentials are not used as FIKRAH Bearer tokens.
+
+### Account display name
+
+Fetch `GET /v1/auth/me` after sign-in; display `name` and tolerate null for accounts created before names were introduced. Let the user set or update their own name through `PATCH /v1/auth/me` with `{ "name": "Reader Name" }`, then replace the cached profile from its response. Names are not unique and never replace email/Google as login credentials. Existing accounts are not blocked from login or private APIs for having a null name.
 
 ### US-05 — Recover a password
 
@@ -229,6 +233,6 @@ Greeting/refusal paths may produce no deltas and still complete normally. If sou
 
 ## 6. Scope not provided by this release
 
-No production web client, Flutter implementation, full offline synchronization protocol, push notifications for processing, note attachments, PDF processing, collaboration, account deletion, profile editing, note moving, user-defined graph edges, note version history or paginated collections are implemented by this API. Those require separate product/contracts work.
+No production web client, Flutter implementation, full offline synchronization protocol, push notifications for processing, note attachments, PDF processing, collaboration, account deletion, profile fields beyond display name, note moving, user-defined graph edges, note version history or paginated collections are implemented by this API. Those require separate product/contracts work.
 
 For exact paths/payloads see the [endpoint reference](api-reference.md); for lifecycle/retry mechanics see [Flutter integration](flutter-integration.md).

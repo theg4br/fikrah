@@ -9,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.contracts.auth import (
+    AccountProfile,
     ActionToken,
     AuthMessage,
     AuthTokenPair,
@@ -19,10 +20,13 @@ from app.contracts.auth import (
     PasswordReset,
     PasswordResetOtp,
     RefreshToken,
+    RegisterAccount,
+    UpdateProfileName,
 )
 from app.core.config import get_settings
 from app.core.datetimes import ensure_timezone
 from app.core.execution import BlockingRunner, ExecutionBusy, execution_budget
+from app.core.names import normalize_display_name
 from app.core.security import (
     DUMMY_PASSWORD_HASH,
     REFRESH_TOKEN_TTL,
@@ -242,7 +246,7 @@ class AuthService:
         return action, user
 
     async def register(
-        self, body: EmailPassword, db: AsyncSession, *, use_otp: bool = False
+        self, body: RegisterAccount, db: AsyncSession, *, use_otp: bool = False
     ) -> AuthMessage:
         delivery_ids: list[UUID] = []
         async with db.begin():
@@ -255,6 +259,7 @@ class AuthService:
             ):
                 user = User(
                     email=body.email,
+                    name=body.name,
                     password_hash=await _password_work(hash_password, body.password),
                 )
                 await self._repository.add_user(db, user)
@@ -269,6 +274,21 @@ class AuthService:
         return AuthMessage(
             message="If the address can be registered, a verification email will be sent."
         )
+
+    async def update_profile_name(
+        self, user_id: UUID, body: UpdateProfileName, db: AsyncSession
+    ) -> AccountProfile:
+        user = await self._repository.update_user_name(db, user_id, body.name)
+        if user is None:
+            raise AuthServiceError(
+                AuthFailure.INVALID_ACCESS_TOKEN, "Invalid or expired access token"
+            )
+        result = AccountProfile(
+            id=user.id, email=user.email, name=user.name,
+            email_verified=user.email_verified_at is not None,
+        )
+        await db.commit()
+        return result
 
     async def verify_email(self, body: ActionToken, db: AsyncSession) -> AuthMessage:
         now = datetime.now(timezone.utc)
@@ -378,6 +398,12 @@ class AuthService:
                 "Google account must have a verified email",
             )
 
+        try:
+            google_name = normalize_display_name(claims.get("name"))
+        except ValueError:
+            google_name = None
+        name = google_name or body.name
+
         delivery_ids: list[UUID] = []
         async with db.begin():
             await self._repository.lock_account_creation(db, email, str(subject))
@@ -399,8 +425,13 @@ class AuthService:
                     "The Google identity is linked to a different email address",
                 )
             if user is None:
+                if name is None:
+                    raise AuthServiceError(
+                        AuthFailure.NAME_REQUIRED, "Name is required to create an account"
+                    )
                 user = User(
                     email=email,
+                    name=name,
                     google_subject=subject,
                     email_verified_at=datetime.now(timezone.utc),
                 )
@@ -425,6 +456,8 @@ class AuthService:
                             db, user.id, purpose, now
                         )
                 user.google_subject = subject
+                if user.name is None and name is not None:
+                    user.name = name
                 user.email_verified_at = user.email_verified_at or datetime.now(
                     timezone.utc
                 )
