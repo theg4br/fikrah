@@ -32,7 +32,7 @@ The deployment scripts live under `infra/azure-vm/`. Generate configuration once
 
 For an application update, commit reviewed changes, package using `package_release.sh PRIVATE_OUTPUT_PARENT`, transfer the package through verified SSH, and run `sudo install_release.sh STAGED_RELEASE_DIRECTORY` on the VM. The installer checks image/configuration, stops demo writers during migration, starts services and checks readiness. No automatic backup runs. Do not automatically downgrade the database if a migration fails.
 
-The current app image is `fikrah:56166c968d1f254faff35153a61f736d39389e86`. Removing backup automation does not require rebuilding that image. Host deployment scripts can be updated separately with their revision recorded.
+The current release is identified by `/opt/fikrah/current/release.json`, not by a hard-coded revision in this guide. CI/CD tags each image `fikrah:<main-commit>` and deploys matching host scripts. Use the release manifest and GitHub deployment run when identifying the running version.
 
 ## Demo limits
 
