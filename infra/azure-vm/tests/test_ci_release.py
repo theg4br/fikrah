@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import runpy
 import subprocess
 import tarfile
 from pathlib import Path
@@ -109,10 +110,33 @@ def test_package_contains_only_checksummed_runtime_inputs(tmp_path):
     with tarfile.open(archive) as bundle:
         assert set(bundle.getnames()) == set(packager.RUNTIME_FILES) | {"image.tar.gz", "release.json", "release.env"}
         manifest = json.load(bundle.extractfile("release.json"))
-        assert manifest["source_image_id"] == inspected["Id"]
-        assert manifest["image_id"] == portable_id
-        assert manifest["image_id"] != inspected["Id"]
+        assert manifest["image_id"] == inspected["Id"]
+        assert manifest["image_config_digest"] == portable_id
+        assert manifest["image_config_digest"] != inspected["Id"]
         for name, digest in manifest["files"].items():
             assert hashlib.sha256(bundle.extractfile(name).read()).hexdigest() == digest
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     assert (archive.parent / "SHA256SUMS").read_text() == digest + "  fikrah-release.tar.gz\n"
+
+
+@pytest.mark.parametrize("tamper", [False, True])
+def test_installer_checks_runtime_content_across_image_stores(tmp_path, monkeypatch, tamper):
+    source = (RUNTIME / "install_release.sh").read_text()
+    validation = source.split("python3 - \"$release_dir\" <<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
+    validation_file = tmp_path / "validate.py"
+    validation_file.write_text(validation)
+    revision = "a" * 40
+    labels = {"org.opencontainers.image.revision": revision}
+    expected = {"architecture": "amd64", "os": "linux", "config": {"Labels": labels, "User": "app"},
+                "rootfs": {"type": "layers", "diff_ids": ["sha256:original"]}}
+    manifest = {"image_id": "sha256:source-store", "image": "tested", "revision": revision, "image_config": expected}
+    (tmp_path / "release.json").write_text(json.dumps(manifest))
+    actual = {"Id": "sha256:different-target-store", "Architecture": "amd64", "Os": "linux",
+              "Config": expected["config"], "RootFS": {"Type": "layers", "Layers": ["sha256:tampered" if tamper else "sha256:original"]}}
+    monkeypatch.setattr("sys.argv", ["installer", str(tmp_path)])
+    with patch("subprocess.check_output", return_value=json.dumps([actual]).encode()):
+        if tamper:
+            with pytest.raises(AssertionError, match="content differs"):
+                runpy.run_path(str(validation_file))
+        else:
+            runpy.run_path(str(validation_file))

@@ -30,14 +30,15 @@ def export_image(image: str, destination: Path) -> None:
                 save.wait()
 
 
-def portable_image_id(archive: Path) -> str:
-    """Use Docker's image config digest, stable across containerd/classic stores."""
+def exported_image_metadata(archive: Path) -> dict:
+    """Record config and rootfs identity independently of Docker's image store."""
     with tarfile.open(archive, "r:gz") as source:
         manifest = json.load(source.extractfile("manifest.json"))
         if len(manifest) != 1:
             raise ValueError("Expected exactly one exported image")
-        config = source.extractfile(manifest[0]["Config"])
-        return "sha256:" + hashlib.file_digest(config, "sha256").hexdigest()
+        content = source.extractfile(manifest[0]["Config"]).read()
+        return {"image_config_digest": "sha256:" + hashlib.sha256(content).hexdigest(),
+                "image_config": json.loads(content)}
 
 
 def package(image: str, revision: str, output: Path) -> Path:
@@ -63,8 +64,8 @@ def package(image: str, revision: str, output: Path) -> Path:
             files[file.name] = hashlib.file_digest(source, "sha256").hexdigest()
     (stage / "release.json").write_text(json.dumps({
         "revision": revision, "image": f"fikrah:{revision}",
-        "image_id": portable_image_id(stage / "image.tar.gz"),
-        "source_image_id": inspected["Id"], "architecture": "amd64", "files": files,
+        "image_id": inspected["Id"], "architecture": "amd64", "files": files,
+        **exported_image_metadata(stage / "image.tar.gz"),
     }, indent=2) + "\n")
     archive = output / "fikrah-release.tar.gz"
     with tarfile.open(archive, "x:gz", compresslevel=1) as target:
