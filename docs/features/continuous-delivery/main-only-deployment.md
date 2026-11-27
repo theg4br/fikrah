@@ -4,7 +4,7 @@
 
 `feature/*` → pull request to `dev` → passing `backend` check → pull request to `main` → passing CI → deploy the tested image to the existing Azure VM.
 
-A direct authorized push to `main` triggers the same pipeline. Pull requests, feature/dev pushes, tags and manual workflow runs never deploy. The deploy job explicitly requires both `event_name == push` and `ref == refs/heads/main`; the GitHub `demo` environment additionally permits only `main`.
+A direct authorized push to `main` triggers the same pipeline. Pull requests, feature/dev pushes, tags and manual workflow runs never deploy. The deploy job explicitly requires both `event_name == push` and `ref == refs/heads/main`; the GitHub `production` environment additionally permits only `main`.
 
 ## CI
 
@@ -14,9 +14,9 @@ Main builds label the image with the exact commit. Only after tests pass is that
 
 ## Azure access
 
-- GitHub environment: `demo`, branch allowlist `main`.
+- GitHub environment: `production`, branch allowlist `main`.
 - OIDC issuer: `https://token.actions.githubusercontent.com`.
-- Subject: `repo:theg4br@184538050/fikrah@1450332931:environment:demo`.
+- Subject: `repo:theg4br@184538050/fikrah@1450332931:environment:production`.
 - Audience: `api://AzureADTokenExchange`.
 - The numeric owner/repository IDs are part of this repository's immutable GitHub subject. Verify the actual issuer/subject/audience from the Azure Login claim diagnostics when provisioning; the legacy name-only subject does not match this repository.
 - Entra application: `fikrah-github-deploy`, without a client secret.

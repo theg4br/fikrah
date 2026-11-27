@@ -36,7 +36,8 @@ def test_main_push_is_required_even_for_manual_runs():
     assert "needs: backend" in deploy_job
     assert "if: github.event_name == 'push' && github.ref == 'refs/heads/main'" in deploy_job
     assert "id-token: write" in deploy_job
-    assert "name: demo" in deploy_job
+    assert "name: production" in deploy_job
+    assert "name: demo" not in deploy_job
     assert "cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}" in workflow
     assert "pull_request_target" not in workflow
 
