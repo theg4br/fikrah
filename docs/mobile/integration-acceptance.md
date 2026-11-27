@@ -40,6 +40,8 @@ Operation IDs refer to the [endpoint reference](api-reference.md).
 | OTP resend and compatibility | A13, A14 | 60-second cooldown and five sends/hour/address shared across methods/purposes; newly issued same-purpose action retires old code/link. Suppressed requests retain generic 202. |
 | OTP password recovery | A14, A15, A04 | One confirmation with email/code/new password; all previous sessions revoked; explicit login after success. |
 | Legacy password account | A01, A02, A04, A10, P01 | Register 202 without tokens; unverified login 403; verification 200; login token pair; one protected General project. |
+| Account name | A01, A11, A10, A16 | Required for new registrations; 1–120 characters after trimming, Unicode and duplicate names allowed. Old accounts can log in with null; authenticated name update affects only the current account and preserves sessions. Null/blank/unknown profile fields rejected. |
+| Google missing name | A05, A10 | New account gets 422 without side effects; collect name and retry with token/name. Verified Google name takes precedence for new accounts; later login preserves a saved name. |
 | Register existing address | A01 | Generic 202; no account-existence message or automatic login assumption. |
 | Resend within/outside limits | A03, A02 | Generic 202 can suppress sending; newly issued same-purpose link retires the old one. |
 | Bad/used/expired action token | A02, A07 | 400 and link-renewal guidance; no access-refresh loop. |
@@ -87,7 +89,7 @@ For provider-backed scenarios, use small synthetic notes with an explicit common
 
 ## 4. Definition of a completed integration
 
-- All 43 application operations are mapped or intentionally excluded from UI scope with an explicit reason.
+- All 44 application operations are mapped or intentionally excluded from UI scope with an explicit reason.
 - Authentication and recovery work without the local web tester.
 - The client handles all documented nullable fields and missing-vs-null PATCH behavior.
 - Each intentional create attempt has one persisted idempotency key.

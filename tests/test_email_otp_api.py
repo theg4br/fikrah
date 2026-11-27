@@ -39,7 +39,7 @@ def emails(monkeypatch):
 async def register(client, email=EMAIL, *, otp=True, password=PASSWORD):
     return await client.post(
         "/v1/auth/register/otp" if otp else "/v1/auth/register",
-        json={"email": email, "password": password},
+        json={"name": "OTP User", "email": email, "password": password},
     )
 
 

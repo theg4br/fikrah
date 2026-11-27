@@ -27,13 +27,15 @@ HTTP field names are snake_case. Client models may use local naming conventions 
 
 | Model / use | Fields and constraints |
 | --- | --- |
-| `Credentials` — register/login | `email`: valid email, normalized by trimming/lowercasing. `password`: string, **5–128 characters**, not trimmed. |
+| `Credentials` — login | `email`: valid email, normalized by trimming/lowercasing. `password`: string, **5–128 characters**, not trimmed. |
+| `Registration` — both registration routes | `email` and `password` as above; required `name`: string, 1–120 Unicode code points after trimming outer whitespace; null characters rejected. Names may repeat; there is no username. |
+| `ProfileNameUpdate` — PATCH `/v1/auth/me` | Required `name` with the same rules; no other body fields. |
 | `EmailRequest` | `email`: valid email, trimmed/lowercased. |
 | `EmailOtpRequest` | `email`: normalized valid email; `code`: exactly six ASCII digits as a **string**, including leading zeroes. |
 | `ResetPasswordOtpRequest` | `email`, `code` as above; `new_password`: 5–128 characters, not trimmed. |
 | `TokenRequest` — legacy verification | `token`: required string, 20–512 characters. |
 | `ResetPasswordRequest` | `token`: 20–512 characters; `new_password`: 5–128 characters, not trimmed. |
-| `GoogleLoginRequest` | `id_token`: required Google JWT string, 20–8,192 characters. |
+| `GoogleLoginRequest` | `id_token`: required Google JWT string, 20–8,192 characters. `name`: optional/null fallback with the registration name constraints; used when the verified Google token has no usable name. |
 | `RefreshRequest` — refresh/logout | `refresh_token`: required opaque string, 20–512 characters. |
 | `ProjectInput` — create/rename | `name`: string, 1–120 characters; trimmed; whitespace-only rejected. |
 | `NoteCreate` | `content`: required nonblank text, trimmed; default maximum 100,000 Unicode code points after trimming. `title`: optional/null string, maximum 240 characters, trimmed; blank becomes null. |
@@ -108,11 +110,12 @@ Refresh tokens have a 30-day lifetime per newly issued token and rotate on every
 {
   "id":"66666666-6666-4666-8666-666666666666",
   "email":"reader@example.com",
-  "email_verified":true
+  "email_verified":true,
+  "name":"Reader Name"
 }
 ```
 
-Fields: `id: UUID`, `email: string`, `email_verified: boolean`. No profile image, full name, role, plan or provider-key fields are returned.
+Fields: `id: UUID`, `email: string`, `email_verified: boolean`, `name: string | null`. Legacy accounts may have a null name; never invent one from the email. No username, profile image, role, plan or provider-key fields are returned. Name is display metadata, not an authentication identifier. A subsequent Google login fills a missing name when available and preserves a name already saved by the user.
 
 ### ProjectView
 

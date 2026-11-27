@@ -3,11 +3,17 @@
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.auth import Credentials, ResetPasswordOtpRequest, ResetPasswordRequest
+from app.schemas.auth import (
+    Credentials,
+    Registration,
+    ResetPasswordOtpRequest,
+    ResetPasswordRequest,
+)
 
 
 @pytest.mark.parametrize("schema,field,extra", [
     (Credentials, "password", {"email": "password-test@example.com"}),
+    (Registration, "password", {"email": "password-test@example.com", "name": "Name"}),
     (ResetPasswordOtpRequest, "new_password", {"email": "password-test@example.com", "code": "000042"}),
     (ResetPasswordRequest, "new_password", {"token": "a-valid-length-test-token"}),
 ])

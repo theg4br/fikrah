@@ -1,6 +1,6 @@
 # Endpoint reference
 
-**43 application operations**, matching the [OpenAPI snapshot](openapi.json). Paths are relative to the configured API origin.
+**44 application operations**, matching the [OpenAPI snapshot](openapi.json). Paths are relative to the configured API origin.
 
 Each entry states what the operation does, why/when mobile calls it, its inputs and its returned data. Shared response objects and validation rules are defined once in [Data models and errors](data-models-and-errors.md).
 
@@ -17,19 +17,19 @@ Each entry states what the operation does, why/when mobile calls it, its inputs 
 
 ## A. Authentication
 
-New mobile clients should use [OTP activation and recovery](#otp-activation-and-recovery-preferred). Login, Google, refresh/logout/me (A04–A05/A08–A10) are unchanged. A01–A03/A06–A07 retain legacy link behavior temporarily.
+New mobile clients should use [OTP activation and recovery](#otp-activation-and-recovery-preferred). Password login and refresh/logout retain their contracts. Registration requires a display name; Google and `/me` support it as described below. A01–A03/A06–A07 retain legacy link behavior temporarily.
 
 ### A01 — POST /v1/auth/register
 
 - **Public. Purpose:** request an email/password account, protected General project and verification/welcome email delivery.
 - **When/why:** submit the sign-up form so the user can establish a private workspace.
-- **Input:** `Credentials`.
+- **Input:** `Registration`: required `name`, email and password.
 - **Success:** `202` → `Message`; generic acknowledgment, no user ID or auth tokens. New-account email delivery may be deferred; duplicate addresses and send suppression preserve generic behavior.
 - **Additional failures:** `429` when password processing is saturated.
 - **Next:** check-email screen → A02, then A04.
 
 ```json
-{"email":"reader@example.com","password":"example-only-long-passphrase"}
+{"name":"Reader Name","email":"reader@example.com","password":"example-only-long-passphrase"}
 ```
 
 ### A02 — POST /v1/auth/verify-email
@@ -74,9 +74,10 @@ New mobile clients should use [OTP activation and recovery](#otp-activation-and-
 
 - **Public. Purpose:** verify a Google identity and create/link/sign in a FIKRAH account.
 - **When/why:** native Google sign-in returns an ID token for the configured backend audience.
-- **Input:** `GoogleLoginRequest`.
+- **Input:** `GoogleLoginRequest`: `id_token`, plus optional fallback `name`. A valid name in the verified Google token takes precedence; existing saved names are preserved.
 - **Success:** `200` → `AuthTokens`; new users receive a General project and welcome-email intent.
-- **Additional failures:** `401` invalid/unverified/non-authoritative new identity; `409` existing identity conflict; `429` IP budget or verifier capacity; `503` missing configuration/verification dependency/deadline.
+- **Additional failures:** `401` invalid/unverified/non-authoritative new identity; `409` existing identity conflict; `422` missing name for a new account (detail `Name is required to create an account`) or invalid fallback; `429` IP budget or verifier capacity; `503` missing configuration/verification dependency/deadline.
+- **Name recovery:** if a new account has no usable name in the Google token, collect it and repeat this operation with `{ "id_token": "...", "name": "Reader Name" }`. A missing-name `422` creates no account, General project, email or session. Existing accounts may still sign in with a null name.
 - **Next:** same bootstrap as A04. See account-linking details in the user journeys; do not substitute a Firebase token or Google access token.
 
 ```json
@@ -143,6 +144,18 @@ New mobile clients should use [OTP activation and recovery](#otp-activation-and-
 - **Success:** `200` → `UserView`.
 - **Next:** P01; handle `401` through the session coordinator.
 
+### A16 — PATCH /v1/auth/me
+
+- **Protected. Purpose:** set or change the current account's display name, including legacy accounts that have no name yet.
+- **When/why:** submit a profile-name form, or complete an existing account's missing name after login.
+- **Input:** `ProfileNameUpdate`: required `name`, 1–120 characters after trimming surrounding whitespace. Other fields and null/blank/non-string names are rejected with `422`.
+- **Success:** `200` → `UserView` with the saved name. Repeating the same value is safe. Credentials, verification and session tokens are unchanged; concurrent name writes are serialized and the last completed write wins.
+- **Next:** replace the current user's cached profile with the response; never submit another user's ID.
+
+```json
+{"name":"علاء جابر"}
+```
+
 ### OTP activation and recovery (preferred)
 
 These five public JSON operations require no Bearer token or callback URL. They return the existing `Message` shape, never session tokens or the code itself. Codes last **10 minutes from issuance**, are single-use and accept at most **five wrong guesses**. Wrong, expired, used/exhausted codes and unknown accounts return the same `400` detail: `Invalid or expired code`.
@@ -153,13 +166,13 @@ The 60-second cooldown and five-send/hour/address cap are shared across OTP/link
 
 - **Purpose:** create an email/password account and General project; enqueue activation code and welcome email.
 - **When/why:** submit sign-up, then show code entry for the same email.
-- **Input:** `Credentials`; password policy is unchanged.
+- **Input:** `Registration`: required `name`, email and password; password policy is unchanged.
 - **Success:** `202` → generic `Message`, identical to A01; no automatic login.
 - **Additional failures:** `429` password-work saturation.
 - **Next:** A12, optionally A13, then A04.
 
 ```json
-{"email":"reader@example.com","password":"example-only-long-passphrase"}
+{"name":"Reader Name","email":"reader@example.com","password":"example-only-long-passphrase"}
 ```
 
 Existing addresses retain generic registration behavior; this route does not resend an existing account's code or replace its password. Use A13 when verification is needed.
@@ -569,6 +582,6 @@ Client disconnect does not prove absence of a committed exchange. Reload C03. A 
 
 ## Documentation utilities
 
-FastAPI also exposes `GET /docs`, `GET /redoc` and `GET /openapi.json`. They are documentation utilities, excluded from the 43 application-operation count. Their availability is not an auth/session or feature-readiness check.
+FastAPI also exposes `GET /docs`, `GET /redoc` and `GET /openapi.json`. They are documentation utilities, excluded from the 44 application-operation count. Their availability is not an auth/session or feature-readiness check.
 
 For client-side orchestration, code examples and recovery rules continue to [Flutter integration](flutter-integration.md).

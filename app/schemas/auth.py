@@ -1,10 +1,24 @@
 """Request and response schemas for authentication endpoints."""
 
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+)
+
+from app.core.names import DISPLAY_NAME_MAX_LENGTH, normalize_display_name
 
 PASSWORD_MIN_LENGTH = 5
+DisplayName = Annotated[
+    str, BeforeValidator(normalize_display_name),
+    Field(min_length=1, max_length=DISPLAY_NAME_MAX_LENGTH),
+]
 
 
 class Credentials(BaseModel):
@@ -15,6 +29,16 @@ class Credentials(BaseModel):
     @classmethod
     def normalize_email(cls, value: EmailStr) -> str:
         return str(value).strip().lower()
+
+
+class Registration(Credentials):
+    name: DisplayName
+
+
+class ProfileNameUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: DisplayName
 
 
 class EmailRequest(BaseModel):
@@ -44,6 +68,7 @@ class ResetPasswordRequest(TokenRequest):
 
 class GoogleLoginRequest(BaseModel):
     id_token: str = Field(min_length=20, max_length=8192)
+    name: DisplayName | None = None
 
 
 class RefreshRequest(BaseModel):
@@ -65,3 +90,4 @@ class UserView(BaseModel):
     id: UUID
     email: EmailStr
     email_verified: bool
+    name: str | None
